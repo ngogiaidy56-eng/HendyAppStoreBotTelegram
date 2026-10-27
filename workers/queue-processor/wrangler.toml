@@ -1,0 +1,25 @@
+name = "hendy-queue-processor"
+main = "src/index.ts"
+compatibility_date = "2026-10-28"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hendyappstore-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "../../database/migrations"
+
+[[queues.producers]]
+binding = "JOBS"
+queue = "hendy-jobs"
+
+[[queues.consumers]]
+queue = "hendy-jobs"
+max_batch_size = 10
+max_batch_timeout = 5
+max_retries = 5
+dead_letter_queue = "hendy-jobs-dlq"
+
+[vars]
+GITHUB_OWNER = "hendyngo-servers"
+GITHUB_REPO = "HendyAppStoreBotTelegram"

@@ -1,0 +1,16 @@
+name = "hendy-telegram-bot"
+main = "src/index.ts"
+compatibility_date = "2026-10-28"
+workers_dev = true
+
+[vars]
+APP_URL = "https://hendy-mini-app.pages.dev"
+ADMIN_URL = "https://hendy-web-admin.pages.dev"
+BOT_USERNAME = ""
+REFERRAL_REWARD_VND = "2000"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hendyappstore-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "../../database/migrations"

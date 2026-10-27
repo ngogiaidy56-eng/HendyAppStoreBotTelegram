@@ -1,0 +1,3 @@
+import React from 'react';
+import { Apple, Download, RefreshCw } from 'lucide-react';
+export default function IOSOtaDownloader({available,loading,onDownload}:{available:boolean;loading:boolean;onDownload:()=>void}){return <><button disabled={!available||loading} className="download" onClick={onDownload}>{loading?<RefreshCw size={16} className="spin"/>:<Apple size={16}/>} {loading?'Đang chuẩn bị…':available?'Tải IPA / thông tin phân phối':'Chưa có bản phát hành'}</button><small className="distribution-note">IPA không tự cài trên iPhone thông thường; dùng TestFlight, App Store hoặc phương thức phân phối Apple được hỗ trợ.</small></>}

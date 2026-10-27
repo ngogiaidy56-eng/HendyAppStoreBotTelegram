@@ -1,0 +1,5 @@
+# Replace this placeholder with the GitHub team or username that owns production changes.
+# Example: * @hendyngo-servers/maintainers
+/.github/workflows/ @hendyngo-servers
+/workers/ @hendyngo-servers
+/database/ @hendyngo-servers

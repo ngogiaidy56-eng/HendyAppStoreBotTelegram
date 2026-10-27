@@ -1,0 +1,1 @@
+export interface UserRecord { id:number; telegram_id:string; username?:string|null; first_name:string; last_name:string; balance_vnd:number; vip_level:'bronze'|'silver'|'gold'|'platinum'; is_banned:0|1 }

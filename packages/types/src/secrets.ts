@@ -1,0 +1,12 @@
+export const managedSecretKeys = [
+  'BOT_TOKEN','BOT_WEBHOOK_SECRET','SESSION_SECRET','ADMIN_TELEGRAM_IDS',
+  'BANK_WEBHOOK_SECRET','BANK_API_KEY','BANK_API_SECRET','GITHUB_WEBHOOK_SECRET',
+  'CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID',
+  'ANDROID_KEYSTORE_BASE64','ANDROID_KEYSTORE_PASSWORD','ANDROID_KEY_ALIAS','ANDROID_KEY_PASSWORD',
+  'IOS_CERTIFICATE_BASE64','IOS_CERTIFICATE_PASSWORD','IOS_PROVISIONING_PROFILE_BASE64',
+  'WINDOWS_PFX_BASE64','WINDOWS_PFX_PASSWORD','MACOS_CERTIFICATE_BASE64','MACOS_CERTIFICATE_PASSWORD',
+  'APPLE_TEAM_ID','APPLE_ID','APPLE_APP_SPECIFIC_PASSWORD','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY',
+] as const;
+export type ManagedSecretKey = typeof managedSecretKeys[number];
+export interface SecretMetadata { key: ManagedSecretKey; configured: boolean; scope: 'github'|'cloudflare'|'local'; updatedAt?: number }
+export type SecretPayload = Partial<Record<ManagedSecretKey, string>>;

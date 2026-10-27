@@ -1,0 +1,14 @@
+name = "hendy-edge-router"
+main = "src/index.ts"
+compatibility_date = "2026-10-28"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hendyappstore-db"
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+migrations_dir = "../../database/migrations"
+
+[[services]]
+binding = "PLATFORM_API"
+service = "hendy-platform-api"

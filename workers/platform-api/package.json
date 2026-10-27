@@ -1,0 +1,20 @@
+{
+  "name": "@hendy/platform-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --config wrangler.toml",
+    "deploy": "wrangler deploy --config wrangler.toml",
+    "migrate:local": "wrangler d1 migrations apply hendyappstore-db --local --config wrangler.toml",
+    "migrate:remote": "wrangler d1 migrations apply hendyappstore-db --remote --config wrangler.toml",
+    "test": "node --test test/*.test.js src/__tests__/*.test.js",
+    "check": "node scripts/check.js"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  },
+  "dependencies": {
+    "libsodium-wrappers": "^0.8.4"
+  }
+}

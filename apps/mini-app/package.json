@@ -1,0 +1,29 @@
+{
+  "name": "@hendy/mini-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview --host 0.0.0.0",
+    "test": "vitest run --config vitest.config.ts"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "@tailwindcss/vite": "^4.1.11",
+    "vite": "^8.3.5",
+    "typescript": "^7.0.2",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "lucide-react": "^1.61.0"
+  },
+  "devDependencies": {
+    "tailwindcss": "^4.1.11",
+    "vitest": "^5.0.5",
+    "jsdom": "^30.1.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/jest-dom": "^6.8.0",
+    "@playwright/test": "^1.55.0"
+  }
+}

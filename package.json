@@ -1,0 +1,34 @@
+{
+  "name": "hendy-app-store",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "packageManager": "pnpm@10.18.0",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0",
+    "husky": "^9.1.7",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "tinypool": "^2.1.2"
+    }
+  },
+  "scripts": {
+    "dev:miniapp": "pnpm --filter @hendy/mini-app dev",
+    "dev:admin": "pnpm --filter @hendy/web-admin dev",
+    "dev:web": "pnpm --filter @hendy/web-user dev",
+    "dev:worker": "pnpm --filter @hendy/platform-api dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm --filter @hendy/platform-api test && python scripts/test_db.py && node --test packages/feature-flags/test/*.test.js && pnpm --filter @hendy/mini-app test",
+    "check": "pnpm --filter @hendy/platform-api check && node scripts/check-workspace.js",
+    "migrate:local": "pnpm --filter @hendy/platform-api migrate:local",
+    "migrate:remote": "pnpm --filter @hendy/platform-api migrate:remote",
+    "prepare": "husky",
+    "configure:wrangler": "node scripts/configure-wrangler.mjs"
+  }
+}

@@ -1,0 +1,12 @@
+name = "hendy-self-healing-bot"
+main = "src/index.ts"
+compatibility_date = "2026-10-28"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "DEDUPE"
+id = "REPLACE_WITH_DEDUPE_KV_NAMESPACE_ID"
+
+[vars]
+GITHUB_OWNER = "hendyngo-servers"
+GITHUB_REPO = "HendyAppStoreBotTelegram"

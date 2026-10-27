@@ -1,0 +1,47 @@
+name: Deploy Mini App
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/mini-app/**'
+      - 'scripts/sync-deployment-domains.mjs'
+      - 'packages/**'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/deploy-miniapp.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: pages-mini-app-production
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm --filter @hendy/mini-app build
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+      - run: pnpm exec wrangler pages deploy apps/mini-app/dist --project-name "${{ vars.MINIAPP_PAGES_PROJECT || 'hendy-mini-app' }}" --branch main
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Detect deployed domains and synchronize central configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          HENDY_GITHUB_TOKEN: ${{ secrets.HENDY_GITHUB_TOKEN }}
+          MINIAPP_PAGES_PROJECT: ${{ vars.MINIAPP_PAGES_PROJECT || 'hendy-mini-app' }}
+          ADMIN_PAGES_PROJECT: ${{ vars.ADMIN_PAGES_PROJECT || 'hendy-web-admin' }}
+          STOREFRONT_PAGES_PROJECT: ${{ vars.STOREFRONT_PAGES_PROJECT || 'hendy-app-storefront' }}
+        run: node scripts/sync-deployment-domains.mjs miniapp

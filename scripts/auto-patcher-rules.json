@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "policy": "rerun-failed-jobs-only",
+  "maxAutomaticRerunsPerRun": 1,
+  "allowedWorkflowNames": ["CI Test", "Security Checks"],
+  "neverPatchSourceAutomatically": true,
+  "neverRerunDeploymentWorkflows": true
+}

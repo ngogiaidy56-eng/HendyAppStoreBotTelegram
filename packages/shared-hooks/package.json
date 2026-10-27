@@ -1,0 +1,7 @@
+{
+  "name": "@hendy/shared-hooks",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "peerDependencies": { "react": "^19.0.0" }
+}

@@ -1,0 +1,85 @@
+name: Deploy Workers
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/**'
+      - 'scripts/configure-wrangler.mjs'
+      - 'scripts/sync-deployment-domains.mjs'
+      - 'database/migrations/**'
+      - 'packages/**'
+      - 'pnpm-workspace.yaml'
+      - 'package.json'
+      - '.github/workflows/deploy-workers.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: workers-production
+  cancel-in-progress: false
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+      CLOUDFLARE_DEDUPE_KV_NAMESPACE_ID: ${{ vars.CLOUDFLARE_DEDUPE_KV_NAMESPACE_ID }}
+      APP_URL: ${{ vars.APP_URL }}
+      ADMIN_URL: ${{ vars.ADMIN_URL }}
+      CORS_ORIGINS: ${{ vars.CORS_ORIGINS }}
+      BOT_USERNAME: ${{ vars.BOT_USERNAME }}
+      MIN_DEPOSIT_VND: ${{ vars.MIN_DEPOSIT_VND }}
+      MAX_DEPOSIT_VND: ${{ vars.MAX_DEPOSIT_VND }}
+      DAILY_CHECKIN_REWARD_VND: ${{ vars.DAILY_CHECKIN_REWARD_VND }}
+      REFERRAL_REWARD_VND: ${{ vars.REFERRAL_REWARD_VND }}
+      SESSION_TTL_SECONDS: ${{ vars.SESSION_TTL_SECONDS }}
+      MAX_INIT_DATA_AGE_SECONDS: ${{ vars.MAX_INIT_DATA_AGE_SECONDS }}
+      BANK_ID: ${{ vars.BANK_ID }}
+      BANK_ACCOUNT_NUMBER: ${{ vars.BANK_ACCOUNT_NUMBER }}
+      BANK_ACCOUNT_NAME: ${{ vars.BANK_ACCOUNT_NAME }}
+      BANK_SYNC_URL: ${{ vars.BANK_SYNC_URL }}
+      TASKS_CONFIG_JSON: ${{ vars.TASKS_CONFIG_JSON }}
+      MINIGAME_CONFIG_JSON: ${{ vars.MINIGAME_CONFIG_JSON }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10.18.0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: pnpm install --no-frozen-lockfile
+      - run: pnpm check && pnpm test
+      - name: Configure resource identifiers
+        run: node scripts/configure-wrangler.mjs
+      - name: Ensure Cloudflare Queues exist
+        shell: bash
+        run: |
+          set -euo pipefail
+          ensure_queue() {
+            local name="$1" output
+            if output="$(pnpm exec wrangler queues create "$name" 2>&1)"; then
+              printf '%s\\n' "$output"
+            elif printf '%s' "$output" | grep -Eqi 'already exists|already in use|queue.*exists'; then
+              printf 'Queue %s already exists.\\n' "$name"
+            else
+              printf '%s\\n' "$output" >&2
+              return 1
+            fi
+          }
+          ensure_queue hendy-jobs
+          ensure_queue hendy-jobs-dlq
+      - name: Apply D1 migrations
+        run: pnpm exec wrangler d1 migrations apply hendyappstore-db --remote --config workers/platform-api/wrangler.toml
+      - name: Deploy platform API
+        run: pnpm exec wrangler deploy --config workers/platform-api/wrangler.toml
+      - name: Deploy Telegram bot worker
+        run: pnpm exec wrangler deploy --config workers/telegram-bot/wrangler.toml
+      - name: Deploy queue processor
+        run: pnpm exec wrangler deploy --config workers/queue-processor/wrangler.toml
+      - name: Deploy edge router
+        run: pnpm exec wrangler deploy --config workers/edge-router/wrangler.toml
+      - name: Deploy self-healing bot
+        run: pnpm exec wrangler deploy --config workers/self-healing-bot/wrangler.toml
