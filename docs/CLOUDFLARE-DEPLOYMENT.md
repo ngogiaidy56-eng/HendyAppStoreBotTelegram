@@ -25,7 +25,7 @@ Trong phần cấu hình hiện tại:
 | Branch | `main` |
 | Project name | `hendy-platform-api` |
 | Root directory | Để trống / repository root (`/`) |
-| Build command | `pnpm install --no-frozen-lockfile && CLOUDFLARE_WORKER_TARGET=platform-api node scripts/configure-wrangler.mjs` |
+| Build command | `pnpm install --no-frozen-lockfile && CLOUDFLARE_WORKER_TARGET=platform-api node scripts/configure-wrangler.mjs && pnpm exec wrangler d1 migrations apply hendyappstore-db --remote --config workers/platform-api/wrangler.toml` |
 | Deploy command | `pnpm exec wrangler deploy --config workers/platform-api/wrangler.toml` |
 
 Tên `hendy-platform-api` phải trùng với trường `name` trong `workers/platform-api/wrangler.toml`. Giữ root directory ở repository root vì script cấu hình tìm thư mục `workers/` từ root.
@@ -39,14 +39,14 @@ Mở Settings → Builds hoặc mục Variables and Secrets của Worker, rồi 
 - `CLOUDFLARE_API_TOKEN`: API token giới hạn quyền triển khai Worker và truy cập tài nguyên cần thiết. Lưu token dưới dạng secret, không commit vào Git.
 - `APP_URL`, `ADMIN_URL`, `CORS_ORIGINS`, `BOT_USERNAME`: có thể thêm sau khi có URL thật của frontend.
 
-Không nhập chuỗi `REPLACE_WITH_D1_DATABASE_ID`; script sẽ thay placeholder bằng `CLOUDFLARE_D1_DATABASE_ID` trong bản checkout của lần build. ID D1 là thông tin cấu hình, còn API token là bí mật.
+Không nhập chuỗi `REPLACE_WITH_D1_DATABASE_ID`; script sẽ thay placeholder bằng `CLOUDFLARE_D1_DATABASE_ID` trong bản checkout của lần build. Lệnh build ở trên cũng áp dụng các migration D1 chưa chạy trước khi lệnh Deploy command phát hành Worker. ID D1 là thông tin cấu hình, còn API token là bí mật.
 
 ### Tạo tài nguyên trước khi deploy API
 
 Đảm bảo trong cùng Cloudflare account đã có:
 - D1 database `hendyappstore-db`.
 - R2 bucket `hendy-app-releases`.
-- Queue `hendy-jobs`.
+- Queues `hendy-jobs` và `hendy-jobs-dlq`.
 
 Nếu tài nguyên chưa tồn tại hoặc tên không khớp với `wrangler.toml`, deployment có thể thất bại. Tạo tài nguyên ở Dashboard trước khi bấm Deploy.
 
