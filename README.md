@@ -59,7 +59,22 @@ Làm theo [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), cấu hình GitHub Environme
 - [Central Configuration Control Plane](docs/CENTRAL-CONFIG.md)
 - [Review report](docs/REVIEW-REPORT.md)
 
+
+## Cloudflare deployment (updated)
+
+This is a monorepo, not a single root-level Vite application. Do not use one generic `npm run build` plus `dist` to publish the entire repository. Use a separate Pages project for each frontend and deploy each Worker from its own Wrangler configuration, or use the repository's GitHub Actions workflows.
+
+- Detailed dashboard steps for the exact Workers & Pages setup screen: [docs/CLOUDFLARE-DEPLOYMENT.md](docs/CLOUDFLARE-DEPLOYMENT.md)
+- Build only the user storefront: `pnpm run build:cloudflare:storefront` → `apps/web-user/dist`
+- Build only the admin interface: `pnpm run build:cloudflare:admin` → `apps/web-admin/dist`
+- Build only the Telegram Mini App: `pnpm run build:cloudflare:miniapp` → `apps/mini-app/dist`
+- Run a local file/configuration check: `pnpm run preflight:cloudflare:pages`
+
+The root `.nvmrc` pins Node.js 22.12.0. Production builds also need a real `VITE_API_BASE_URL` pointing at the deployed API Worker.
+
+
 ## Import source into GitHub
+
 
 This project includes a helper for importing the complete source into `hendyngo-servers/HendyAppStoreBotTelegram`, including when the remote already has a README or setup commits. From the project root, run:
 
