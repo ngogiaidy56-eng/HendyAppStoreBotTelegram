@@ -1,57 +1,57 @@
 # HendyAppStoreBotTelegram
 
-Telegram Mini App + app store, Admin Studio, storefront, API, Telegram bot, queue processor and Cloudflare deployment tooling.
+Monorepo gồm Telegram Mini App, app store người dùng, Admin Studio và các Cloudflare Workers cho API, Telegram bot, queue jobs, edge routing và tự phục hồi CI.
 
-## One-Worker Cloudflare deployment
+## Cloudflare architecture
 
-The repository now supports **one Cloudflare Worker** for the complete user-facing system:
+### Three Pages projects
+- `hendy-web-admin` — `apps/web-admin/dist`
+- `hendy-mini-app` — `apps/mini-app/dist`
+- `hendy-web-user` — `apps/web-user/dist`
 
-- Storefront: `/`
-- Admin interface: `/admin/`
-- Telegram Mini App: `/miniapp/`
-- API and release downloads: `/api/*`, `/downloads/*`
-- Telegram webhook: `/telegram/webhook`
-- Optional GitHub self-healing webhook: `/github/webhook`
-- D1 migrations, R2 releases, KV deduplication, Queue jobs and scheduled cleanup are bound to this same Worker.
+### Five Workers
+- `hendy-platform-api` — REST API, Telegram auth, releases, D1/R2, CORS và cleanup.
+- `hendy-telegram-bot` — Telegram webhook và xử lý bot commands.
+- `hendy-queue-processor` — Queue consumer, broadcast, bank adapter và OTA workflow.
+- `hendy-edge-router` — maintenance gate và service routing tới API.
+- `hendy-self-healing-bot` — GitHub webhook có chữ ký và retry chống lặp.
 
-Follow [docs/CLOUDFLARE-DEPLOYMENT.md](docs/CLOUDFLARE-DEPLOYMENT.md).
+Workflow [`.github/workflows/deploy-cloudflare.yml`](.github/workflows/deploy-cloudflare.yml) tự tạo/tái sử dụng tài nguyên, deploy Workers, build/deploy 3 Pages, đồng bộ URL/CORS và đăng ký Telegram webhook. Workflow chạy khi push lên `main` hoặc có thể chạy thủ công trong GitHub Actions.
 
-In Cloudflare Workers Builds, connect this repository on `main`, set Root directory to `/`, and use:
+## Required GitHub Actions Secrets
 
-**Build command**
-```bash
-pnpm install --no-frozen-lockfile && pnpm run provision:cloudflare:resources && pnpm run build:cloudflare
-```
+Tạo tại Repository → Settings → Secrets and variables → Actions:
+- `CLOUDFLARE_API_TOKEN` (quyền Workers Scripts, D1, KV, R2, Queues và Pages)
+- `CLOUDFLARE_ACCOUNT_ID`
+- `BOT_TOKEN`
+- `BOT_WEBHOOK_SECRET`
+- `SESSION_SECRET` (ít nhất 32 byte ngẫu nhiên)
+- `ADMIN_TELEGRAM_IDS`
+- `HENDY_GITHUB_TOKEN` (tùy chọn; cập nhật Actions Variables và bật self-healing)
+- Các secret bank/provider chỉ khi tích hợp tương ứng đã sẵn sàng.
 
-**Deploy command**
-```bash
-pnpm run deploy:cloudflare
-```
+Actions Variables tùy chọn: `WORKER_SUBDOMAIN`, `WORKER_API_URL`, `TELEGRAM_BOT_WORKER_URL`, `MINIAPP_DOMAIN_OVERRIDE`, `ADMIN_DOMAIN_OVERRIDE`, `WEB_USER_DOMAIN_OVERRIDE`, `BOT_USERNAME`, `BANK_SYNC_URL`, `TASKS_CONFIG_JSON`, `MINIGAME_CONFIG_JSON`.
 
-Add `CLOUDFLARE_ACCOUNT_ID` as a build variable and `CLOUDFLARE_API_TOKEN` as a build secret. The token needs permissions to create/read D1 databases, Workers KV namespaces, R2 buckets, Queues and deploy Workers. Provisioning creates or reuses named resources and injects IDs only into the current build workspace. It does not write secrets or IDs into a Git commit.
+Script tự provisioning D1, KV, R2 và Queues; không commit ID tài nguyên hoặc secret vào Git.
 
-## Local validation
+**Security:** một phiên bản trước của `.env.example` từng chứa bot token thật. Tệp mẫu đã được làm sạch, nhưng giá trị cũ có thể vẫn còn trong Git history. Hãy thu hồi/đổi token bằng BotFather và chỉ lưu token mới trong GitHub Secrets.
 
-Requirements: Node.js 22.12+ and pnpm 10.18.0.
+## Local checks
+
+Cần Node.js 22.12+ và pnpm 10.18.0.
 
 ```bash
 pnpm install --no-frozen-lockfile
-pnpm run preflight:cloudflare:single
-pnpm run build:cloudflare
+pnpm run preflight:cloudflare
 pnpm check
 pnpm test
+pnpm --filter @hendy/web-admin build
+pnpm --filter @hendy/mini-app build
+pnpm --filter @hendy/web-user build
 ```
 
-The unified build creates `public/index.html`, `public/admin/index.html` and `public/miniapp/index.html`. The `public/` directory is generated during build and is not committed.
+Xem [hướng dẫn triển khai Cloudflare](docs/CLOUDFLARE-DEPLOYMENT.md) để biết trình tự CI/CD và cấu hình chi tiết.
 
-## Runtime secrets
+## Legacy single Worker
 
-Configure Worker Runtime Secrets after first deployment: `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SESSION_SECRET` (at least 32 random bytes), and `ADMIN_TELEGRAM_IDS`. Add `GITHUB_TOKEN` and `GITHUB_WEBHOOK_SECRET` only when enabling the GitHub webhook, and banking secrets only after validating the provider's signature contract.
-
-## Notes
-
-- API and the three frontends use one Worker origin, which avoids separate Pages domains and most cross-origin API configuration.
-- Telegram webhook must point to `https://<worker-domain>/telegram/webhook` and send the same secret configured as `BOT_WEBHOOK_SECRET`.
-- The R2 bucket is private release storage; real app binaries must be uploaded and reviewed before publication.
-- Do not commit `.dev.vars`, API tokens, bot tokens, certificates, or real production secrets.
-- This deployment architecture is one Worker script plus its bound Cloudflare resources; D1/R2/KV/Queues remain separate resource products managed by that Worker.
+Cấu hình root-level Worker cũ được giữ tạm để rollback. Hãy tắt tự động Workers Builds cho service legacy `hendyappstorebotelegram` trước khi dùng pipeline tách riêng, tránh hai pipeline cùng triển khai.

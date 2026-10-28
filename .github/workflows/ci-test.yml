@@ -7,10 +7,10 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}-single-worker
+  group: ci-${{ github.ref }}-multi-project
   cancel-in-progress: true
 jobs:
-  worker-and-sql:
+  unit-and-static-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,10 +20,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
       - run: pnpm install --no-frozen-lockfile
+      - run: pnpm run preflight:cloudflare
       - run: pnpm check
       - run: pnpm test
-  unified-worker-build:
+  frontend-build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,40 +35,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm run preflight:cloudflare:single
-      - run: pnpm run build:cloudflare
-      - name: Verify unified static assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f public/index.html
-          test -f public/admin/index.html
-          test -f public/miniapp/index.html
-          test -f wrangler.toml
-  miniapp-e2e:
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.18.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: pnpm install --no-frozen-lockfile
-      - run: pnpm --filter @hendy/mini-app exec playwright install --with-deps chromium
+      - run: pnpm --filter @hendy/web-admin build
+        env:
+          VITE_API_BASE_URL: https://api.example.invalid
       - run: pnpm --filter @hendy/mini-app build
         env:
-          VITE_API_BASE_URL: https://example.invalid
-      - name: Start preview and run E2E tests
-        shell: bash
-        run: |
-          set -euo pipefail
-          pnpm --filter @hendy/mini-app preview -- --host 127.0.0.1 --port 4173 >/tmp/hendy-preview.log 2>&1 &
-          for i in {1..20}; do
-            if curl -fsS http://127.0.0.1:4173 >/dev/null; then break; fi
-            sleep 1
-          done
-          E2E_BASE_URL=http://127.0.0.1:4173 pnpm --filter @hendy/mini-app exec playwright test e2e/app.spec.ts
+          VITE_API_BASE_URL: https://api.example.invalid
+      - run: pnpm --filter @hendy/web-user build
+        env:
+          VITE_API_BASE_URL: https://api.example.invalid

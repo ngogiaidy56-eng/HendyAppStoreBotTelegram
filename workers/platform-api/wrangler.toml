@@ -10,10 +10,11 @@ head_sampling_rate = 1
 [vars]
 APP_URL = "https://hendy-mini-app.pages.dev"
 ADMIN_URL = "https://hendy-web-admin.pages.dev"
-CORS_ORIGINS = "https://hendy-mini-app.pages.dev,https://hendy-web-admin.pages.dev,https://hendy-app-storefront.pages.dev"
+STOREFRONT_URL = "https://hendy-web-user.pages.dev"
+CORS_ORIGINS = "https://hendy-mini-app.pages.dev,https://hendy-web-admin.pages.dev,https://hendy-web-user.pages.dev"
 BOT_USERNAME = ""
 MIN_DEPOSIT_VND = "10000"
-GITHUB_OWNER = "hendyngo-servers"
+GITHUB_OWNER = "ngogiaidy56-eng"
 GITHUB_REPO = "HendyAppStoreBotTelegram"
 MAX_DEPOSIT_VND = "100000000"
 MAX_INIT_DATA_AGE_SECONDS = "86400"

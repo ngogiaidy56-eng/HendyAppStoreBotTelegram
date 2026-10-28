@@ -1,13 +1,11 @@
-name: Deploy Mini App (disabled - unified Worker)
+name: Deploy Mini App (manual notice)
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  info:
+  notice:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "::notice::Separate Pages deployment is disabled."
-          echo "Telegram Mini App is served by the root Wrangler Worker at /miniapp/."
-          echo "Use Cloudflare Workers Builds or the manual Deploy Unified Worker workflow."
+          echo "::notice::The Mini App deploy is part of the Deploy Cloudflare Platform workflow."

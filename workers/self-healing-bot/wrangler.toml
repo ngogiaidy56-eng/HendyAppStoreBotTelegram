@@ -8,5 +8,5 @@ binding = "DEDUPE"
 id = "REPLACE_WITH_DEDUPE_KV_NAMESPACE_ID"
 
 [vars]
-GITHUB_OWNER = "hendyngo-servers"
+GITHUB_OWNER = "ngogiaidy56-eng"
 GITHUB_REPO = "HendyAppStoreBotTelegram"

@@ -1,111 +1,93 @@
-# Triển khai toàn bộ HendyAppStoreBotTelegram bằng một Cloudflare Worker
+# HendyAppStoreBotTelegram — triển khai 3 Pages và Workers tự động
 
-## Mục tiêu
+## 1. Kiến trúc
 
-Chỉ tạo **một Worker** tên `hendyappstorebotelegram`. Worker này phục vụ:
+Ba Pages project:
+| Pages | Ứng dụng | Build output |
+|---|---|---|
+| `hendy-web-admin` | Admin Studio | `apps/web-admin/dist` |
+| `hendy-mini-app` | Telegram Mini App | `apps/mini-app/dist` |
+| `hendy-web-user` | Storefront | `apps/web-user/dist` |
 
-- Storefront: `/`
-- Admin: `/admin/`
-- Telegram Mini App: `/miniapp/`
-- API: `/api/*`)
-- Tải bản phát hành: `/downloads/*`)
-- Telegram webhook: `/telegram/webhook`
-- Queue consumer, cron cleanup và webhook GitHub tùy chọn.
+Năm Worker:
+- `hendy-platform-api`: REST API, Telegram authentication, releases, D1/R2, CORS.
+- `hendy-telegram-bot`: Telegram webhook và bot commands.
+- `hendy-queue-processor`: consumer của `hendy-jobs`, broadcast, bank adapter và OTA workflow.
+- `hendy-edge-router`: kiểm tra bảo trì và định tuyến tới API.
+- `hendy-self-healing-bot`: webhook GitHub có HMAC và retry chống lặp.
 
-Không cần tạo ba Pages hoặc năm Workers riêng biệt. D1, R2, KV và Queues vẫn là các binding/tài nguyên Cloudflare mà một Worker có thể sử dụng.
+Tài nguyên dùng chung: D1 `hendyappstore-db`, R2 `hendy-app-releases`, KV `hendy-appstore-dedupe`, Queues `hendy-jobs` và `hendy-jobs-dlq`.
 
-## 1. Cấu hình màn hình Workers & Pages bạn đang mở
+## 2. GitHub Secrets cần tạo
 
-Chọn repository `ngogiaidy56-eng/HendyAppStoreBotTelegram`, branch `main`, rồi đặt:
+Mở repository → Settings → Secrets and variables → Actions → Secrets:
 
-| Trường | Giá trị |
-|---|---|
-| Project name | `hendyappstorebotelegram` |
-| Root directory | `/` hoặc để trống |
-| Build command | `pnpm install --no-frozen-lockfile && pnpm run provision:cloudflare:resources && pnpm run build:cloudflare` |
-| Deploy command | `pnpm run deploy:cloudflare` |
+- `CLOUDFLARE_API_TOKEN`: token có quyền Workers Scripts, D1, KV, R2, Queues và Pages.
+- `CLOUDFLARE_ACCOUNT_ID`.
+- `BOT_TOKEN`.
+- `BOT_WEBHOOK_SECRET`.
+- `SESSION_SECRET`: ít nhất 32 byte ngẫu nhiên.
+- `ADMIN_TELEGRAM_IDS`.
+- `HENDY_GITHUB_TOKEN`:  tùy chọn, để ghi GitHub Actions Variables và bật self-healing CI.
 
-Không dùng `npm run build` và không đặt output directory thành `dist` ở root. Root `wrangler.toml` khai báo static asset directory là `./public`; build script tạo thư mục đó bằng cách build/gom cả ba giao diện.
+Bổ sung secrets bank/provider chỉ khi các tích hợp đó đã được cấu hình. Workflow sẽ dừng sớm nếu thiếu secret bắt buộc, thay vì deploy thành công nhưng bot không thể hoạt động.
 
-Tài liệu Cloudflare: [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) và [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/).
+**Quan trọng:** bản trước của `.env.example` từng chứa một Telegram bot token thật. Tệp hiện đã được làm sạch nhưng token cũ có thể còn trong lịch sử Git. Hãy thu hồi/đổi token bằng BotFather trước khi đưa bot production lên mạng.
 
-## 2. Build variables and secrets
+## 3. Actions Variables tùy chọn
 
-Trong phần Settings → Builds → Build variables and secrets của Worker, thêm:
+- `WORKER_SUBDOMAIN` hoặc `WORKER_API_URL` nếu không thể tự phát hiện host `workers.dev`.
+- `TELEGRAM_BOT_WORKER_URL` nếu bot Worker dùng custom domain.
+- `MINIAPP_DOMAIN_OVERRIDE`, `ADMIN_DOMAIN_OVERRIDE`, `WEB_USER_DOMAIN_OVERRIDE` cho custom HTTPS origins của Pages.
+- `BOT_USERNAME`, `BANK_SYNC_URL`, `TASKS_CONFIG_JSON`, `MINIGAME_CONFIG_JSON` và các biến nghiệp vụ khác.
 
-- `CLOUDFLARE_ACCOUNT_ID`: Account ID 32 ký tự.
-- `CLOUDFLARE_API_TOKEN`:  lưu dưới dạng build secret; cần quyền tạo/đọc D1, Workers KV, R2 buckets, Queues và Workers Scripts. Hãy dùng token giới hạn quyền phù hợp, không dùng token này trong mã nguồn.
+Nếu không khai báo domain override, script tự tìm/tạo Pages project, lấy host của Pages và phát hiện workers.dev subdomain để tạo API/Bot URL.
 
-Build script tự tìm hoặc tạo các tài nguyên có tên cố định:
-- D1: `hendyappstore-db`
-- KV: `hendy-appstore-dedupe`
-- R2: `hendy-app-releases`
-- Queue: `hendy-jobs`)
-- Dead-letter Queue: `hendy-jobs-dlq`)
+## 4. Trình tự triển khai tự động
 
-Sau đó, script chèn ID resource vào `wrangler.toml` chỉ trong workspace của lần build. Nếu API token thiếu quyền, build dừng và báo endpoint Cloudflare nào không thể gọi được. Không cần tự gõ D1/KV UUID vào mã nguồn.
+Mở GitHub Actions → **Deploy Cloudflare Platform**, hoặc push commit lên nhánh `main`. Workflow thực hiện theo thứ tự:
 
-## 3. Runtime secrets sau lần deploy đầu
+1. Tạo hoặc dùng lại D1, KV, R2 và Queues.
+2. Tạo hoặc dùng lại ba Pages project đúng tên.
+3. Xác định URL Pages/Workers, chèn ID D1/KV, APP/ADMIN URL và CORS vào Wrangler config.
+4. Áp dụng D1 migrations.
+5. Deploy lần lượt API, Telegram bot, Queue processor, edge router và self-healing Worker.
+6. Đồng bộ Runtime Secrets đã khai báo vào các Worker tương ứng.
+7. Gọi Telegram `setWebhook` để đăng ký `/telegram/webhook` trên Worker bot.
+8. Build từng frontend với `VITE_API_BASE_URL` được inject, rồi upload output vào Pages project tương ứng.
+9. Đồng bộ domain/CORS lần cuối và deploy lại API/Bot config khi cần.
 
-Mở Worker → Settings → Variables and Secrets, thêm Runtime Secrets:
+Không có secret hoặc ID tài nguyên thật nào được commit. Nếu Cloudflare token thiếu quyền, workflow sẽ báo endpoint nào bị từ chối.
 
-- `BOT_TOKEN`: Telegram bot token.
-- `BOT_WEBHOOK_SECRET`: secret token Telegram gửi kèm webhook.
-- `SESSION_SECRET`: chuỗi ngẫu nhiên ít nhất 32 bytes.
-- `ADMIN_TELEGRAM_IDS`: Telegram user ID quản trị theo định dạng mà mã nguồn hiện có yêu cầu.
-- `GITHUB_TOKEN` và `GITHUB_WEBHOOK_SECRET`: chỉ khi bật endpoint tự chạy lại CI.
-- Các secret ngân hàng chỉ khi đã xác minh chữ ký webhook từ nhà cung cấp.
+## 5. Build settings nếu cần cấu hình Pages thủ công
 
-Build secret và Runtime Secret là hai mục khác nhau. Không đưa token vào Build command, README hoặc commit Git.
+Khi cấu hình project trong Dashboard, đặt Root directory là repository root `/`:
 
-## 4. URL sau deploy
+| Project | Build command | Output directory |
+|---|---|---|
+| `hendy-web-admin` | `pnpm install --no-frozen-lockfile && pnpm --filter @hendy/web-admin build` | `apps/web-admin/dist` |
+| `hendy-mini-app` | `pnpm install --no-frozen-lockfile && pnpm --filter @hendy/mini-app build` | `apps/mini-app/dist` |
+| `hendy-web-user` | `pnpm install --no-frozen-lockfile && pnpm --filter @hendy/web-user build` | `apps/web-user/dist` |
 
-Dùng URL thật hiển thị trong Cloudflare:
-- Storefront: `https://<worker-domain>/`
-- Admin: `https://<worker-domain>/admin/`
-- Telegram Mini App: `https://<worker-domain>/miniapp/`
-- API health: `https://<worker-domain>/health`
-- Telegram webhook: `https://<worker-domain>/telegram/webhook`
+Đặt Build variable `VITE_API_BASE_URL` bằng HTTPS origin của Worker `hendy-platform-api`. Pipeline tự động trong GitHub Actions đã inject biến này khi deploy bằng Wrangler; cấu hình trên chỉ cần nếu muốn để Cloudflare tự build trực tiếp từ Git.
 
-Cấu hình Telegram Mini App dùng URL `/miniapp/` và webhook dùng `/telegram/webhook`, cùng `BOT_WEBHOOK_SECRET` đã khai báo.
+Cloudflare hỗ trợ nhiều Pages project trong một monorepo với build/output directory riêng: [Pages Monorepos](https://developers.cloudflare.com/pages/configuration/monorepos/) và [Build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/).
 
-## 5. Build và xác minh
+## 6. Tránh hai pipeline deploy cùng lúc
 
-Build command sẽ:
-1. Cài dependency từ workspace pnpm.
-2. Tạo hoặc dùng lại D1/KV/R2/Queues.
-3. Build Storefront với base `/`, Admin với base `/admin/`, Mini App với base `/miniapp/`.
-4. Gom cả ba vào `public/`, thư mục static asset của Worker.
+Các Pages project cũ có thể vẫn bật auto-build khi push Git. Pipeline mới build asset trên GitHub Actions rồi upload bằng Wrangler. Trong mỗi Pages project, vào Settings → Builds → Branch control và tắt automatic production deployments (có thể tắt cả preview deployments). Project Git-integrated vẫn hỗ trợ deploy bằng Wrangler sau khi tắt tự động build: [Cloudflare Git integration](https://developers.cloudflare.com/pages/configuration/git-integration/).
 
-Deploy command sẽ:
-1. Chạy các D1 migrations chưa được áp dụng.
-2. Triển khai root `wrangler.toml` dưới dạng một Worker.
+Ngoài ra, tắt Workers Builds tự động cho Worker legacy `hendyappstorebotelegram`. Pipeline chính hiện triển khai theo năm Wrangler config riêng. Giữ Worker legacy chỉ để rollback nếu cần.
 
-Sau khi Deploy báo thành công, kiểm tra:
-1. `/` mở Storefront.
-2. `/admin/` mở Admin.
-3. `/miniapp/` mở Telegram Mini App.
-4. `/health` trả về JSON `ok: true` sau khi migrations hoàn tất.
-5. Worker Logs không có lỗi binding hoặc runtime secret.
+## 7. Kiểm tra sau deploy
 
-Nếu lỗi là permission denied, bổ sung đúng quyền API token. Nếu `CLOUDFLARE_ACCOUNT_ID` hoặc `CLOUDFLARE_API_TOKEN` thiếu, cấu hình trong Build variables/secrets rồi Retry deployment.
+- `https://hendy-web-admin.pages.dev`: Admin xác thực Telegram và kiểm tra `ADMIN_TELEGRAM_IDS`.
+- `https://hendy-mini-app.pages.dev`: mở từ Telegram Mini App.
+- `https://hendy-web-user.pages.dev`: Storefront.
+- `https://hendy-platform-api.<workers-subdomain>.workers.dev/health`: kỳ vọng JSON có `ok: true`.
+- Telegram `getWebhookInfo` phải trả URL `/telegram/webhook` của Worker bot.
+- CORS của API phải chứa cả ba origin Pages.
+- Queue processor phải subscribe `hendy-jobs`; edge router cần service binding `PLATFORM_API = hendy-platform-api`.
+- Self-healing Worker cần KV và secrets tương ứng nếu bật tính năng webhook GitHub.
 
-## 6. GitHub Actions
-
-`.github/workflows/ci-test.yml` xác minh test và build asset cho Worker duy nhất. `.github/workflows/deploy-workers.yml` chỉ là phương án triển khai thủ công dự phòng; các workflow deploy Pages riêng đã được vô hiệu hóa để tránh tạo nhiều ứng dụng Cloudflare không cần thiết.
-
-Nếu bật Cloudflare Workers Builds tự động theo push, dùng nó làm pipeline production chính. Không bật thêm một pipeline tự động khác để deploy cùng Worker.
-
-
-## 7. Ngắt các Pages cũ để chỉ còn một deployment
-
-Các project Pages `hendy-web-admin`, `hendy-mini-app`, `hendy-app-storefront` trước đây có thể vẫn còn Git integration riêng trong Cloudflare. Các workflow YAML đã được chuyển sang kiến trúc một Worker, nhưng việc đó **không tự xóa hoặc ngắt Git integration Pages đã tạo trước đó**.
-
-Để chỉ dùng Worker `hendyappstorebotelegram`:
-1. Trong Cloudflare Dashboard, mở từng project Pages cũ (nếu vẫn tồn tại): `hendy-web-admin`, `hendy-mini-app`, `hendy-app-storefront`.
-2. Vào Settings → Builds & deployments / Git integration.
-3. Tắt auto-deploy hoặc disconnect repository cho các project Pages cũ. Không cần xóa project nếu muốn giữ bản deploy cũ để dự phòng.
-4. Mở Workers & Pages → `hendyappstorebotelegram` → Builds. Đảm bảo chỉ Worker hợp nhất đang tự build từ branch `main`.
-5. Mở check status `Workers Builds: hendyappstorebotelegram` trong commit mới nhất và xác nhận Success.
-
-Cloudflare có thể tiếp tục hiển thị check thất bại của Pages cũ cho tới khi Git integration của chúng được ngắt; những check đó không phải kết quả deploy của Worker hợp nhất.
+Nếu deploy dừng, mở job đầu tiên thất bại tại [GitHub Actions](https://github.com/ngogiaidy56-eng/HendyAppStoreBotTelegram/actions). Các nguyên nhân phổ biến là token thiếu quyền, thiếu secrets hoặc custom domain sai định dạng.

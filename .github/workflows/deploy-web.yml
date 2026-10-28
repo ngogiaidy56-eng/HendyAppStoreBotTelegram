@@ -1,13 +1,11 @@
-name: Deploy Web Frontends (disabled - unified Worker)
+name: Deploy Web Pages (manual notice)
 on:
   workflow_dispatch:
 permissions:
   contents: read
 jobs:
-  info:
+  notice:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "::notice::Separate Pages deployment is disabled."
-          echo "Storefront and Admin are served by the root Wrangler Worker at / and /admin/."
-          echo "Use Cloudflare Workers Builds or the manual Deploy Unified Worker workflow."
+          echo "::notice::Use the Deploy Cloudflare Platform workflow to build/deploy hendy-web-admin, hendy-mini-app, and hendy-web-user with VITE_API_BASE_URL automatically injected."

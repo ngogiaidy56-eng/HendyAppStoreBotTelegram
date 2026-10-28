@@ -1,37 +1,22 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const mode = String(process.argv[2] || 'all').toLowerCase();
-if (!['all', 'pages', 'workers', 'single'].includes(mode)) {
-  console.error('Usage: node scripts/cloudflare-preflight.mjs <all|pages|workers|single>');
-  process.exit(2);
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const mode=String(process.argv[2]||'all').toLowerCase();
+if(!['all','pages','workers'].includes(mode)){console.error('Usage: node scripts/cloudflare-preflight.mjs <all|pages|workers>');process.exit(2);}
+const required=['package.json','pnpm-workspace.yaml','.nvmrc'];
+if(mode!=='workers')required.push('apps/web-admin/package.json','apps/web-admin/index.html','apps/mini-app/package.json','apps/mini-app/index.html','apps/web-user/package.json','apps/web-user/index.html');
+if(mode!=='pages')required.push('workers/platform-api/wrangler.toml','workers/telegram-bot/wrangler.toml','workers/queue-processor/wrangler.toml','workers/edge-router/wrangler.toml','workers/self-healing-bot/wrangler.toml','scripts/configure-wrangler.mjs','scripts/provision-cloudflare-resources.mjs','scripts/sync-deployment-domains.mjs');
+const missing=required.filter(x=>!existsSync(path.join(root,x)));
+if(missing.length){console.error('Missing deployment files:\n'+missing.map(x=>' - '+x).join('\n'));process.exit(1);}
+const pkg=JSON.parse(readFileSync(path.join(root,'package.json'),'utf8'));
+if(pkg.packageManager!=='pnpm@10.18.0')throw new Error('Expected packageManager pnpm@10.18.0.');
+for(const app of ['web-admin','mini-app','web-user']){
+ const data=JSON.parse(readFileSync(path.join(root,'apps',app,'package.json'),'utf8'));
+ if(!data.scripts?.build)throw new Error('Missing build script for '+app);
 }
-const requiredFiles = ['package.json', 'pnpm-workspace.yaml', '.nvmrc'];
-if (mode === 'single') requiredFiles.push('wrangler.toml', 'src/index.ts', 'scripts/build-cloudflare-single-worker.mjs', 'scripts/provision-cloudflare-resources.mjs');
-if (mode !== 'workers' && mode !== 'single') {
-  requiredFiles.push('apps/mini-app/package.json','apps/mini-app/index.html','apps/web-admin/package.json','apps/web-admin/index.html','apps/web-user/package.json','apps/web-user/index.html','scripts/cloudflare-build.mjs');
+if(mode!=='pages'){
+ const expected={'platform-api':'hendy-platform-api','telegram-bot':'hendy-telegram-bot','queue-processor':'hendy-queue-processor','edge-router':'hendy-edge-router','self-healing-bot':'hendy-self-healing-bot'};
+ for(const [dir,name] of Object.entries(expected)){const toml=readFileSync(path.join(root,'workers',dir,'wrangler.toml'),'utf8');if(!toml.includes('name = "'+name+'"')||!toml.includes('main = '))throw new Error('Invalid Wrangler config for '+name);}
 }
-if (mode !== 'pages' && mode !== 'single') {
-  requiredFiles.push('workers/platform-api/wrangler.toml','workers/telegram-bot/wrangler.toml','workers/queue-processor/wrangler.toml','workers/edge-router/wrangler.toml','workers/self-healing-bot/wrangler.toml','scripts/configure-wrangler.mjs');
-}
-const missing = requiredFiles.filter((file) => !existsSync(path.join(root, file)));
-if (missing.length) {
-  console.error('Missing required project files:\n' + missing.map((file) => ' - ' + file).join('\n'));
-  process.exit(1);
-}
-const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
-if (pkg.packageManager !== 'pnpm@10.18.0') {
-  console.error('Expected packageManager pnpm@10.18.0 in package.json.');
-  process.exit(1);
-}
-console.log('Project files and package-manager declaration: OK.');
-if (mode === 'single') {
-  const config = readFileSync(path.join(root, 'wrangler.toml'), 'utf8');
-  if (!config.includes('main = "src/index.ts"') || !config.includes('directory = "./public"')) {
-    console.error('Root wrangler.toml must point to src/index.ts and ./public.');
-    process.exit(1);
-  }
-}
-console.log(mode === 'single' ? 'Single Worker preflight completed.' : 'Preflight completed.');
+console.log('Cloudflare multi-project preflight passed.');
