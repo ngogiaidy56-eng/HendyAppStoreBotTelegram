@@ -26,6 +26,9 @@ export async function publishAdminEvent(env, input) {
 export async function handleAdminWebSocket(request, env) {
   if(request.method!=='GET'||(request.headers.get('upgrade')||'').toLowerCase()!=='websocket') return json({error:{code:'WEBSOCKET_UPGRADE_REQUIRED',message:'Use a WebSocket upgrade request'}},426);
   if(!env.ADMIN_LIVE_SESSIONS) throw new HttpError(503,'Live status streaming is not configured','LIVE_STREAM_NOT_CONFIGURED');
+  const origin = request.headers.get('origin');
+  const allowedOrigins = (env.CORS_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean);
+  if (origin && !allowedOrigins.includes(origin)) throw new HttpError(403, 'Origin is not allowed to connect to the live stream', 'ORIGIN_NOT_ALLOWED');
   const offered=(request.headers.get('sec-websocket-protocol')||'').split(',').map(x=>x.trim()).filter(Boolean);
   if(!offered.includes(ADMIN_STREAM_PROTOCOL)) throw new HttpError(400,'Required WebSocket subprotocol is missing','LIVE_STREAM_PROTOCOL_REQUIRED');
   const credential=offered.find(x=>x.startsWith(AUTH_PROTOCOL_PREFIX));
