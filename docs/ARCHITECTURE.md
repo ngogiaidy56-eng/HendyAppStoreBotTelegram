@@ -73,3 +73,13 @@ pnpm --filter @hendy/web-user build
 
 ## Native signing
 Signing secrets không tự tạo app native. APK/AAB, IPA, EXE/MSIX hoặc DMG/PKG cần source project tương ứng, toolchain/runner phù hợp, signature verification, checksum và các bước Apple signing/notarization khi cần. Không phát hành placeholder artifacts.
+
+## Realtime admin monitoring
+
+The Platform API exports `AdminLiveSession`, a Durable Object defined in `workers/platform-api/src/realtime/ws-durable-object.js`. The API checks the signed user session and administrator allowlist before it forwards `/api/admin/live/ws) to the Durable Object. The browser token is carried in an authentication subprotocol (not a query string) and stripped before forwarding. The stream emits only sanitized audit/queue status metadata; it is read-only from the browser side.
+
+The Queue Processor binds the same object using `script_name = "hendy-platform-api"`, which lets queue job transitions emit `processing`, `queued`, `retry), `completed) and `dead_letter) status events to admin sessions.
+
+## Worker development commands
+
+See [WORKERS-DEVELOPMENT.md](WORKERS-DEVELOPMENT.md) for per-Worker dev/deploy/tail commands, CI dry-runs, GitHub CLI workflows, Pages builds, runtime secrets and post-deployment smoke tests.

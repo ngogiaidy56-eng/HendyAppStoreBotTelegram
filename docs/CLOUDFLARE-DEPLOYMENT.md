@@ -77,3 +77,20 @@ Secret keystore/certificate chỉ là đầu vào. Build APK/AAB, IPA, EXE/MSIX 
 - Kiểm tra Telegram webhook, API health và queue consumer.
 - Mở cả ba Pages và kiểm tra responsive UI, API/CORS, download tickets.
 - Kiểm tra logs không chứa secret; thử rollback/restore trong staging.
+
+## 10. Phát triển riêng từng Worker và kiểm tra binding
+
+Dùng [WORKERS-DEVELOPMENT.md](WORKERS-DEVELOPMENT.md) làm runbook chi tiết. Các lệnh root đã có sẵn:
+
+| Tác vụ | Lệnh |
+|---|---|
+| Kiểm tra 5 Workers + 3 Pages configs | `pnpm run check:topology` |
+| Dry-run bundle cả năm Workers | `pnpm run dry-run:workers` |
+| Chạy cả hai kiểm tra | `pnpm run check:workers` |
+| API dev/deploy/tail | `pnpm run dev:api` / `pnpm run deploy:api` / `pnpm run tail:api` |
+| Telegram dev/deploy/tail | `pnpm run dev:telegram` / `pnpm run deploy:telegram` / `pnpm run tail:telegram` |
+| Queue dev/deploy/tail | `pnpm run dev:queue` / `pnpm run deploy:queue` / `pnpm run tail:queue` |
+| Edge dev/deploy/tail | `pnpm run dev:edge` / `pnpm run deploy:edge` / `pnpm run tail:edge` |
+| Self-healing dev/deploy/tail | `pnpm run dev:self-healing` / `pnpm run deploy:self-healing` / `pnpm run tail:self-healing` |
+
+CI chạy cùng các bước topology-check và Wrangler dry-run để bắt lỗi entrypoint/binding/build trước khi có production credentials. Dry-run không deploy; deployment production vẫn do workflow Deploy Cloudflare Platform điều phối.

@@ -3,7 +3,7 @@ import { processBankSync } from './jobs/bank-sync';
 import { processOtaBuild } from './jobs/ota-build';
 import { MAX_ATTEMPTS, retryDelaySeconds, isRetryable } from './utils/retry-handler';
 interface Env { DB:D1Database; BOT_TOKEN:string; JOBS?:Queue; ADMIN_LIVE_SESSIONS?:DurableObjectNamespace; GITHUB_TOKEN?:string; GITHUB_OWNER?:string; GITHUB_REPO?:string; BANK_SYNC_URL?:string; BANK_SYNC_SECRET?:string }
-async function publishQueueStatus(env:Env,event:{action:string;targetId:string;status:'processing'|'completed'|'retry'|'dead_letter'}){if(!env.ADMIN_LIVE_SESSIONS)return;try{const id=env.ADMIN_LIVE_SESSIONS.idFromName('hendy-admin-live-stream');await env.ADMIN_LIVE_SESSIONS.get(id).fetch('https://admin-live.internal/publish',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'queue',at:Math.floor(Date.now()/1000),action:event.action,targetType:'queue_job',targetId:event.targetId,status:event.status})});}catch(error){console.warn('admin_live_queue_event_failed',{error:(error as Error)?.message||'unknown'});}}
+async function publishQueueStatus(env:Env,event:{action:string;targetId:string;status:'queued'|'processing'|'completed'|'retry'|'dead_letter'}){if(!env.ADMIN_LIVE_SESSIONS)return;try{const id=env.ADMIN_LIVE_SESSIONS.idFromName('hendy-admin-live-stream');await env.ADMIN_LIVE_SESSIONS.get(id).fetch('https://admin-live.internal/publish',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({type:'queue',at:Math.floor(Date.now()/1000),action:event.action,targetType:'queue_job',targetId:event.targetId,status:event.status})});}catch(error){console.warn('admin_live_queue_event_failed',{error:(error as Error)?.message||'unknown'});}}
 async function handleJob(message:any,env:Env){
  const jobId=String(message.body?.jobId||'');if(!/^[a-z0-9-]{36}$/i.test(jobId))throw new Error('invalid job id');
  const now=Math.floor(Date.now()/1000);
@@ -14,7 +14,7 @@ async function handleJob(message:any,env:Env){
  await publishQueueStatus(env,{action:job.job_type,targetId:jobId,status:'processing'});
  try{
   const payload=JSON.parse(job.payload_json||'{}');
-  if(job.job_type==='bot_broadcast') await processBroadcast(job,env,jobId);
+  if(job.job_type==='bot_broadcast') { const result = await processBroadcast(job,env,jobId); await publishQueueStatus(env,{action:job.job_type,targetId:jobId,status:result?.continued?'queued':'completed'}); }
   else if(job.job_type==='bank_sync') { await processBankSync(payload,env); await env.DB.prepare("UPDATE queue_jobs SET status='completed',updated_at=? WHERE id=?").bind(Math.floor(Date.now()/1000),jobId).run(); await publishQueueStatus(env,{action:job.job_type,targetId:jobId,status:'completed'}); }
   else if(job.job_type==='ota_build') { await processOtaBuild(payload,env); await env.DB.prepare("UPDATE queue_jobs SET status='completed',updated_at=? WHERE id=?").bind(Math.floor(Date.now()/1000),jobId).run(); await publishQueueStatus(env,{action:job.job_type,targetId:jobId,status:'completed'}); }
   else throw new Error(`unsupported job type: ${job.job_type}`);
