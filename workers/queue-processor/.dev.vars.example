@@ -1,0 +1,4 @@
+# Copy to .dev.vars for local testing; never commit .dev.vars.
+BOT_TOKEN=replace-with-a-test-bot-token
+# Optional; OTA workflow jobs require a GitHub token with least privilege.
+GITHUB_TOKEN=

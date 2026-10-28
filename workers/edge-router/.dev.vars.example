@@ -1,0 +1,2 @@
+# No runtime secrets are required for the basic edge-router route.
+# Copy to .dev.vars only if you need to override non-secret local variables.
