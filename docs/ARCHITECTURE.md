@@ -1,40 +1,75 @@
-# HendyAppStoreBotTelegram — Architecture
+# HendyAppStoreBotTelegram — kiến trúc hệ thống
 
-## Design target
+## Mục tiêu
+Monorepo PNPM vận hành năm Cloudflare Workers và ba Cloudflare Pages projects. GitHub Actions điều phối deploy theo một pipeline production.
 
-A PNPM monorepo for the Telegram shop, adaptive application storefront, admin studio and Cloudflare automation. Keep business logic modular but deploy services separately only where trust boundaries or execution profiles differ.
+## Sơ đồ luồng
+```mermaid
+flowchart LR
+ Admin[Web Admin Pages] --> Edge[Hendy Edge Router]
+ Store[Web User Store Pages] --> Edge
+ Mini[Telegram Mini App Pages] --> API[Platform API Worker]
+ Edge --> API
+ API --> D1[(Cloudflare D1)]
+ API --> R2[(Private R2 Releases)]
+ API --> Q[Hendy Jobs Queue]
+ Q --> Queue[Queue Processor Worker]
+ Bot[Telegram Webhook] --> Telegram[Telegram Bot Worker]
+ Telegram --> API
+ GH[GitHub Actions Build Matrix] --> R2
+ Heal[GitHub Webhook] --> Self[Self-Healing Worker]
+ Self --> GH
+ API --> KV[(KV Dedupe and Cache)]
+```
 
-## Runtime services
+## Ba Pages projects
+| Project | Source | Vai trò |
+|---|---|---|
+| `hendy-web-admin` | `apps/web-admin` | Admin Studio, secrets automation, maintenance, feature flags, logs, broadcast và release ops |
+| `hendy-mini-app` | `apps/mini-app` | Telegram WebApp, profile, check-in, tasks, referrals, notifications và minigames |
+| `hendy-web-user` | `apps/web-user` | Storefront responsive, app detail và download portal |
 
-- `apps/mini-app`: Telegram WebApp UI. It never trusts `initDataUnsafe` for authentication; it sends raw `Telegram.WebApp.initData` to the platform API.
-- `apps/web-user`: adaptive storefront for app release downloads.
-- `apps/web-admin`: admin control plane for users/products, broadcasts, features, maintenance, secrets sync and release operations.
-- `workers/platform-api`: central REST API, Telegram HMAC authentication, sessions, wallet/shop transactions, releases, notification/tasks/referral/check-in/minigame APIs, feature flags and GitHub workflow dispatch.
-- `workers/telegram-bot`: the only Telegram webhook endpoint. It validates Telegram's `X-Telegram-Bot-Api-Secret-Token` and dispatches bot commands.
-- `workers/queue-processor`: asynchronous jobs, broadcasts, retry and dead-letter handling.
-- `workers/edge-router`: device-aware routing and maintenance guard, backed by a service binding to the platform API.
-- `workers/self-healing-bot`: signed GitHub failure event handling and allowlisted workflow reruns. It is intentionally not an arbitrary source-code patcher.
+## Năm Workers
+1. `hendy-platform-api`: REST API, Telegram initData verification, admin authorization, sessions, release tickets, D1/R2, feature flags và audit log.
+2. `hendy-telegram-bot`: Telegram webhook, xác minh `X-Telegram-Bot-Api-Secret-Token` và dispatch command modules.
+3. `hendy-queue-processor`: queue batches, broadcast, retry/backoff, DLQ, OTA orchestration và provider adapters.
+4. `hendy-edge-router`: maintenance guard, device/layout resolution và service binding tới API.
+5. `hendy-self-healing-bot`: HMAC-signed GitHub webhook, replay protection và chỉ retry workflow/repository allowlisted; không tự chạy mã tùy ý.
 
-## Storage boundaries
+## Cloudflare resources
+- D1 `hendyappstore-db`: dữ liệu nghiệp vụ và ledger; cập nhật số dư cùng ledger trong batch có ràng buộc duy nhất.
+- R2 `hendy-app-releases`: bucket riêng tư; download qua ticket ngắn hạn, không bật public bucket để bỏ qua xác thực.
+- KV `hendy-appstore-dedupe`: cache/dedupe phụ trợ, không dùng làm nguồn chuẩn cho số dư.
+- Queues `hendy-jobs` và `hendy-jobs-dlq`: xử lý bất đồng bộ, retry và dead-letter.
+- GitHub Actions: isolated runners và encrypted signing secrets.
 
-- D1 is authoritative for users, balances, wallet ledger, deposits, orders, inventory, task claims, referrals, check-ins, minigame spins, notifications, audit logs and job status.
-- KV is only used for non-sensitive request dedupe / cache. Never make KV authoritative for balances or inventory.
-- R2 holds release binaries and backup artifacts. Release downloads use short-lived signed tickets; don't make the bucket public.
-- GitHub Actions stores deployment credentials and signing materials. A browser form can upload only allowlisted values via the backend; those values are encrypted with the repository's GitHub public key before calling GitHub's Actions Secrets API.
+## Environment sync và bảo mật
+Admin form chỉ gửi secret allowlist qua HTTPS. Backend phải mã hóa bằng GitHub repository public key (libsodium sealed box) trước khi gọi Actions Secrets API. Không trả secret về UI, lưu plaintext trong D1 hoặc in ra log. Sau khi cập nhật GitHub Secrets, chạy `Sync Runtime Secrets` hoặc pipeline deploy để đẩy tới Workers.
 
-## Consistency controls
+Keystore/chứng chỉ chỉ được sử dụng trong runner cách ly. Không đưa private key vào browser, Pages assets, D1, KV hoặc log. Token phải có quyền tối thiểu; xoay mọi token từng xuất hiện trong Git history.
 
-- Product price is read from D1, not from browser payloads.
-- Wallet changes and their ledger entries are performed in one D1 batch and protected by unique references/constraints.
-- Deposit callbacks use an HMAC-SHA256 check over raw request bytes and a provider transaction ID. A production bank needs a provider-specific adapter and secret/signature contract before enabling live crediting.
-- Check-in, referral, task claims and minigame spins have unique constraints / ledger references to prevent duplicate rewards.
-- Feature flags are stored in D1 and support enabled state plus deterministic rollout percentage. Maintenance controls should not replace authentication/authorization.
-- Admin routes require server-side `requireAdmin`; UI visibility is not an authorization control.
+## Build và deploy
+- Production workflow: `.github/workflows/deploy-cloudflare.yml`.
+- CI: `.github/workflows/ci-test.yml`.
+- Runtime secret sync: `.github/workflows/secrets-sync.yml` (manual, cần nhập `SYNC`).
+- Security audit: `.github/workflows/security-checks.yml`.
+- Domain sync: `.github/workflows/sync-domains.yml`.
 
-## Deployment style
+Pipeline tạo/tái sử dụng D1/KV/R2/Queues, cập nhật Wrangler IDs/vars, áp migration, deploy năm Workers, sync secrets, cấu hình Telegram/GitHub webhooks, build/deploy ba Pages và đồng bộ CORS cuối cùng. Không chạy hai production pipeline đồng thời.
 
-Build frontends separately; deploy each Worker from its own Wrangler config. The first release uses a modular REST API rather than splitting every route into a separate Worker. Queue consumers and the Telegram webhook are separated because their execution and trust boundaries differ.
+## Local development
+Yêu cầu Node.js 22.12+ và pnpm 10.18.0.
+```bash
+corepack enable
+corepack prepare pnpm@10.18.0 --activate
+pnpm install --no-frozen-lockfile
+pnpm run preflight:cloudflare
+pnpm check
+pnpm test
+pnpm --filter @hendy/web-admin build
+pnpm --filter @hendy/mini-app build
+pnpm --filter @hendy/web-user build
+```
 
-## Giới hạn phát hành ứng dụng native
-
-Repo hiện không chứa project native Android/iOS/Windows/macOS và không tự biên dịch hoặc ký APK/AAB, IPA, EXE/MSIX, DMG/PKG. Không có binary mẫu/giả được tạo ra. Hãy build và ký bằng toolchain của từng nền tảng, kiểm tra chữ ký và quyền phân phối, rồi tải artifact thật qua Admin Studio. iOS/macOS cần cấu hình profile/chứng chỉ và notarization theo yêu cầu của Apple.
+## Native signing
+Signing secrets không tự tạo app native. APK/AAB, IPA, EXE/MSIX hoặc DMG/PKG cần source project tương ứng, toolchain/runner phù hợp, signature verification, checksum và các bước Apple signing/notarization khi cần. Không phát hành placeholder artifacts.
