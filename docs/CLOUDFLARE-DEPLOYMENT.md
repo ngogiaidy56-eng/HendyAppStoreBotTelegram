@@ -28,6 +28,7 @@ Mở repository → Settings → Secrets and variables → Actions → Secrets:
 - `BOT_WEBHOOK_SECRET`.
 - `SESSION_SECRET`: ít nhất 32 byte ngẫu nhiên.
 - `ADMIN_TELEGRAM_IDS`.
+- `GITHUB_WEBHOOK_SECRET`: secret dùng để ký/kiểm tra webhook GitHub của self-healing Worker.
 - `HENDY_GITHUB_TOKEN`:  tùy chọn, để ghi GitHub Actions Variables và bật self-healing CI.
 
 Bổ sung secrets bank/provider chỉ khi các tích hợp đó đã được cấu hình. Workflow sẽ dừng sớm nếu thiếu secret bắt buộc, thay vì deploy thành công nhưng bot không thể hoạt động.

@@ -27,7 +27,8 @@ Tạo tại Repository → Settings → Secrets and variables → Actions:
 - `BOT_WEBHOOK_SECRET`
 - `SESSION_SECRET` (ít nhất 32 byte ngẫu nhiên)
 - `ADMIN_TELEGRAM_IDS`
-- `HENDY_GITHUB_TOKEN` (tùy chọn; cập nhật Actions Variables và bật self-healing)
+- `HENDY_GITHUB_TOKEN` (quyền quản lý Actions Variables, retry workflow, và tạo/sửa repository webhook)
+- `GITHUB_WEBHOOK_SECRET` (secret ký webhook GitHub tới self-healing Worker).
 - Các secret bank/provider chỉ khi tích hợp tương ứng đã sẵn sàng.
 
 Actions Variables tùy chọn: `WORKER_SUBDOMAIN`, `WORKER_API_URL`, `TELEGRAM_BOT_WORKER_URL`, `MINIAPP_DOMAIN_OVERRIDE`, `ADMIN_DOMAIN_OVERRIDE`, `WEB_USER_DOMAIN_OVERRIDE`, `BOT_USERNAME`, `BANK_SYNC_URL`, `TASKS_CONFIG_JSON`, `MINIGAME_CONFIG_JSON`.
@@ -52,6 +53,6 @@ pnpm --filter @hendy/web-user build
 
 Xem [hướng dẫn triển khai Cloudflare](docs/CLOUDFLARE-DEPLOYMENT.md) để biết trình tự CI/CD và cấu hình chi tiết.
 
-## Legacy single Worker
+## Legacy deployment cleanup
 
-Cấu hình root-level Worker cũ được giữ tạm để rollback. Hãy tắt tự động Workers Builds cho service legacy `hendyappstorebotelegram` trước khi dùng pipeline tách riêng, tránh hai pipeline cùng triển khai.
+Cấu hình root-level của Worker đơn đã được loại khỏi nhánh `main`; lịch sử Git vẫn giữ các commit cũ để tham khảo. Trong Cloudflare Dashboard, hãy pause/disable Workers Builds của service legacy `hendyappstorebotelegram`, vì cấu hình Git integration trong Dashboard không thể được tắt chỉ bằng commit mã nguồn. Production path hiện tại là workflow `Deploy Cloudflare Platform` với ba Pages và năm Workers.
