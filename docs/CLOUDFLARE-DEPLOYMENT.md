@@ -7,8 +7,8 @@ Chỉ tạo **một Worker** tên `hendyappstorebotelegram`. Worker này phục 
 - Storefront: `/`
 - Admin: `/admin/`
 - Telegram Mini App: `/miniapp/`
-- API: `/api/*)
-- Tải bản phát hành: `/downloads/*)
+- API: `/api/*`)
+- Tải bản phát hành: `/downloads/*`)
 - Telegram webhook: `/telegram/webhook`
 - Queue consumer, cron cleanup và webhook GitHub tùy chọn.
 
@@ -16,7 +16,7 @@ Không cần tạo ba Pages hoặc năm Workers riêng biệt. D1, R2, KV và Qu
 
 ## 1. Cấu hình màn hình Workers & Pages bạn đang mở
 
-Chọn repository `ngogiaidy56-eng/HendyAppStoreBotTelegram`, branch `main), rồi đặt:
+Chọn repository `ngogiaidy56-eng/HendyAppStoreBotTelegram`, branch `main`, rồi đặt:
 
 | Trường | Giá trị |
 |---|---|
@@ -25,7 +25,7 @@ Chọn repository `ngogiaidy56-eng/HendyAppStoreBotTelegram`, branch `main), r�
 | Build command | `pnpm install --no-frozen-lockfile && pnpm run provision:cloudflare:resources && pnpm run build:cloudflare` |
 | Deploy command | `pnpm run deploy:cloudflare` |
 
-Không dùng `npm run build` và không đặt output directory thành `dist` ở root. Root `wrangler.toml` khai báo static asset directory là `./public); build script tạo thư mục đó bằng cách build/gom cả ba giao diện.
+Không dùng `npm run build` và không đặt output directory thành `dist` ở root. Root `wrangler.toml` khai báo static asset directory là `./public`; build script tạo thư mục đó bằng cách build/gom cả ba giao diện.
 
 Tài liệu Cloudflare: [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) và [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/).
 
@@ -34,14 +34,14 @@ Tài liệu Cloudflare: [Workers Builds configuration](https://developers.cloudf
 Trong phần Settings → Builds → Build variables and secrets của Worker, thêm:
 
 - `CLOUDFLARE_ACCOUNT_ID`: Account ID 32 ký tự.
-- `CLOUDFLARE_API_TOKEN): lưu dưới dạng build secret; cần quyền tạo/đọc D1, Workers KV, R2 buckets, Queues và Workers Scripts. Hãy dùng token giới hạn quyền phù hợp, không dùng token này trong mã nguồn.
+- `CLOUDFLARE_API_TOKEN`:  lưu dưới dạng build secret; cần quyền tạo/đọc D1, Workers KV, R2 buckets, Queues và Workers Scripts. Hãy dùng token giới hạn quyền phù hợp, không dùng token này trong mã nguồn.
 
 Build script tự tìm hoặc tạo các tài nguyên có tên cố định:
 - D1: `hendyappstore-db`
 - KV: `hendy-appstore-dedupe`
 - R2: `hendy-app-releases`
-- Queue: `hendy-jobs)
-- Dead-letter Queue: `hendy-jobs-dlq)
+- Queue: `hendy-jobs`)
+- Dead-letter Queue: `hendy-jobs-dlq`)
 
 Sau đó, script chèn ID resource vào `wrangler.toml` chỉ trong workspace của lần build. Nếu API token thiếu quyền, build dừng và báo endpoint Cloudflare nào không thể gọi được. Không cần tự gõ D1/KV UUID vào mã nguồn.
 
@@ -67,15 +67,15 @@ Dùng URL thật hiển thị trong Cloudflare:
 - API health: `https://<worker-domain>/health`
 - Telegram webhook: `https://<worker-domain>/telegram/webhook`
 
-Cấu hình Telegram Mini App dùng URL `/miniapp/) và webhook dùng `/telegram/webhook), cùng `BOT_WEBHOOK_SECRET` đã khai báo.
+Cấu hình Telegram Mini App dùng URL `/miniapp/` và webhook dùng `/telegram/webhook`, cùng `BOT_WEBHOOK_SECRET` đã khai báo.
 
 ## 5. Build và xác minh
 
 Build command sẽ:
 1. Cài dependency từ workspace pnpm.
 2. Tạo hoặc dùng lại D1/KV/R2/Queues.
-3. Build Storefront với base `/), Admin với base `/admin/), Mini App với base `/miniapp/).
-4. Gom cả ba vào `public/), thư mục static asset của Worker.
+3. Build Storefront với base `/`, Admin với base `/admin/`, Mini App với base `/miniapp/`.
+4. Gom cả ba vào `public/`, thư mục static asset của Worker.
 
 Deploy command sẽ:
 1. Chạy các D1 migrations chưa được áp dụng.
@@ -85,7 +85,7 @@ Sau khi Deploy báo thành công, kiểm tra:
 1. `/` mở Storefront.
 2. `/admin/` mở Admin.
 3. `/miniapp/` mở Telegram Mini App.
-4. `/health` trả về JSON `ok: true) sau khi migrations hoàn tất.
+4. `/health` trả về JSON `ok: true` sau khi migrations hoàn tất.
 5. Worker Logs không có lỗi binding hoặc runtime secret.
 
 Nếu lỗi là permission denied, bổ sung đúng quyền API token. Nếu `CLOUDFLARE_ACCOUNT_ID` hoặc `CLOUDFLARE_API_TOKEN` thiếu, cấu hình trong Build variables/secrets rồi Retry deployment.

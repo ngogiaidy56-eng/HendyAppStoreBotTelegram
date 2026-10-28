@@ -1,5 +1,7 @@
 import { routeApi, handleBinaryDownload } from '../workers/platform-api/src/routes/api.js';
 import { HttpError, json, nowSeconds } from '../workers/platform-api/src/utils/http.js';
+import { maintenanceResponse } from '../workers/edge-router/src/maintenance-guard';
+import { resolveLayout } from '../workers/edge-router/src/layout-resolver';
 import { dispatch } from '../workers/telegram-bot/src/gateway/dispatcher';
 import { processBroadcast } from '../workers/queue-processor/src/jobs/bot-broadcast';
 import { processBankSync } from '../workers/queue-processor/src/jobs/bank-sync';
@@ -131,11 +133,15 @@ export default {
       if(url.pathname==='/health'&&request.method==='GET'){const db=await env.DB.prepare('SELECT 1 AS ok').first();return json({ok:db?.ok===1,service:'hendy-app-store-unified',timestamp:nowSeconds()},200,headers);}
       if(url.pathname==='/telegram/health') return jsonResponse({ok:true,service:'hendy-telegram-bot'});
       if(url.pathname==='/queue/health') return jsonResponse({ok:true,service:'hendy-queue-processor'});
-      if(url.pathname==='/edge/health') return jsonResponse({ok:true,service:'hendy-edge-router'});
+      if(url.pathname==='/edge/health') return jsonResponse({ok:true,service:'hendy-edge-router',...resolveLayout(request)});
       if(url.pathname==='/telegram/webhook') return mergeHeaders(await botWebhook(request,env,url),headers);
       if(url.pathname==='/github/webhook') return request.method==='POST'?githubWebhook(request,env):jsonResponse({error:'method_not_allowed'},405);
       if(url.pathname.startsWith('/downloads/')) return mergeHeaders(await handleBinaryDownload(request,env,url),headers);
-      if(url.pathname.startsWith('/api/')||url.pathname==='/webhooks/bank') return mergeHeaders(await routeApi(request,{...env,APP_URL:env.APP_URL||url.origin+'/miniapp/',ADMIN_URL:env.ADMIN_URL||url.origin+'/admin/'},url),headers);
+      if(url.pathname.startsWith('/api/')||url.pathname==='/webhooks/bank') {
+        const maintenance = await maintenanceResponse(request, env);
+        if (maintenance) return mergeHeaders(maintenance, headers);
+        return mergeHeaders(await routeApi(request,{...env,APP_URL:env.APP_URL||url.origin+'/miniapp/',ADMIN_URL:env.ADMIN_URL||url.origin+'/admin/'},url),headers);
+      }
       return frontend(request,env,url);
     }catch(error){
       const status=error instanceof HttpError?error.status:500;
