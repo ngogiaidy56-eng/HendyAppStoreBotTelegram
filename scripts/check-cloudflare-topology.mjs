@@ -27,6 +27,7 @@ for(const worker of workers){
 }
 for(const page of pages){const manifestPath=path.join(root,page.dir,'package.json'),htmlPath=path.join(root,page.dir,'index.html');if(!existsSync(manifestPath)||!existsSync(htmlPath))errors.push('Missing Pages source files for '+page.name);else{const m=JSON.parse(readFileSync(manifestPath,'utf8'));if(!m.scripts?.build)errors.push(page.name+' is missing a build script');}}
 const apiConfig=readFileSync(path.join(root,'workers/platform-api/wrangler.toml'),'utf8');
+if(!apiConfig.includes('[exports.AdminLiveSession]')||!apiConfig.includes('storage = "sqlite"'))errors.push('Platform API must declare AdminLiveSession as a SQLite Durable Object export');
 if(apiConfig.includes('ADMIN_LIVE_SESSIONS')&&!readFileSync(path.join(root,'workers/platform-api/src/index.js'),'utf8').includes('AdminLiveSession'))errors.push('API Durable Object class is not exported');
 const queueConfig=readFileSync(path.join(root,'workers/queue-processor/wrangler.toml'),'utf8');
 if(queueConfig.includes('ADMIN_LIVE_SESSIONS')&&!queueConfig.includes('script_name = "hendy-platform-api"'))errors.push('Queue Processor must bind AdminLiveSession from hendy-platform-api');

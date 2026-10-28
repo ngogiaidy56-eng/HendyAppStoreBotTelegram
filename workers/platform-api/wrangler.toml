@@ -41,6 +41,6 @@ queue = "hendy-jobs"
 name = "ADMIN_LIVE_SESSIONS"
 class_name = "AdminLiveSession"
 
-[[migrations]]
-tag = "v1"
-new_sqlite_classes = ["AdminLiveSession"]
+[exports.AdminLiveSession]
+type = "durable-object"
+storage = "sqlite"
