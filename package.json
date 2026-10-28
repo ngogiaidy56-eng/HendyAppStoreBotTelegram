@@ -4,14 +4,20 @@
   "type": "module",
   "version": "1.0.0",
   "packageManager": "pnpm@10.18.0",
-  "engines": { "node": ">=22.12.0" },
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "devDependencies": {
     "wrangler": "^4.45.0",
     "husky": "^9.1.7",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
-  "pnpm": { "overrides": { "tinypool": "^2.1.2" } },
+  "pnpm": {
+    "overrides": {
+      "tinypool": "^2.1.2"
+    }
+  },
   "scripts": {
     "dev:miniapp": "pnpm --filter @hendy/mini-app dev",
     "dev:admin": "pnpm --filter @hendy/web-admin dev",
@@ -27,6 +33,27 @@
     "migrate:local": "pnpm --filter @hendy/platform-api migrate:local",
     "migrate:remote": "pnpm --filter @hendy/platform-api migrate:remote",
     "prepare": "husky",
-    "configure:wrangler": "node scripts/configure-wrangler.mjs"
+    "configure:wrangler": "node scripts/configure-wrangler.mjs",
+    "dev:api": "pnpm --filter @hendy/platform-api dev",
+    "dev:telegram": "pnpm --filter @hendy/telegram-bot dev",
+    "dev:queue": "pnpm --filter @hendy/queue-processor dev",
+    "dev:edge": "pnpm --filter @hendy/edge-router dev",
+    "dev:self-healing": "pnpm --filter @hendy/self-healing-bot dev",
+    "dev:pages:admin": "pnpm --filter @hendy/web-admin dev",
+    "dev:pages:miniapp": "pnpm --filter @hendy/mini-app dev",
+    "dev:pages:store": "pnpm --filter @hendy/web-user dev",
+    "deploy:api": "pnpm exec wrangler deploy --config workers/platform-api/wrangler.toml",
+    "deploy:telegram": "pnpm exec wrangler deploy --config workers/telegram-bot/wrangler.toml",
+    "deploy:queue": "pnpm exec wrangler deploy --config workers/queue-processor/wrangler.toml",
+    "deploy:edge": "pnpm exec wrangler deploy --config workers/edge-router/wrangler.toml",
+    "deploy:self-healing": "pnpm exec wrangler deploy --config workers/self-healing-bot/wrangler.toml",
+    "tail:api": "pnpm exec wrangler tail --config workers/platform-api/wrangler.toml",
+    "tail:telegram": "pnpm exec wrangler tail --config workers/telegram-bot/wrangler.toml",
+    "tail:queue": "pnpm exec wrangler tail --config workers/queue-processor/wrangler.toml",
+    "tail:edge": "pnpm exec wrangler tail --config workers/edge-router/wrangler.toml",
+    "tail:self-healing": "pnpm exec wrangler tail --config workers/self-healing-bot/wrangler.toml",
+    "check:topology": "node scripts/check-cloudflare-topology.mjs",
+    "dry-run:workers": "node scripts/dry-run-workers.mjs",
+    "check:workers": "pnpm run check:topology && pnpm run dry-run:workers"
   }
 }
