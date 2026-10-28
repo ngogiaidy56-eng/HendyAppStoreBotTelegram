@@ -33,7 +33,7 @@ const queueConfig=readFileSync(path.join(root,'workers/queue-processor/wrangler.
 if(queueConfig.includes('ADMIN_LIVE_SESSIONS')&&!queueConfig.includes('script_name = "hendy-platform-api"'))errors.push('Queue Processor must bind AdminLiveSession from hendy-platform-api');
 const deploy=readFileSync(path.join(root,'.github/workflows/deploy-cloudflare.yml'),'utf8');
 if(!deploy.includes('Deploy self-healing Worker'))errors.push('Deploy workflow does not deploy the fifth Worker');
-if(!deploy.includes('GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}'))errors.push('Deploy workflow must expose GITHUB_WEBHOOK_SECRET to secret validation');
+const deployHeader=deploy.slice(0,deploy.indexOf('    steps:'));\nif(!deployHeader.includes('GITHUB_WEBHOOK_SECRET: ${{ secrets.GITHUB_WEBHOOK_SECRET }}'))errors.push('Deploy job global env must expose GITHUB_WEBHOOK_SECRET to production credential validation');\nfor(const rel of ['workers/platform-api/src/realtime/ws-handler.js','workers/platform-api/src/realtime/ws-durable-object.js','workers/platform-api/src/services/github-crypto.js','scripts/generate-release-manifest.mjs','scripts/upload-release-r2.mjs','scripts/__tests__/release-manifest.test.mjs','.github/workflows/matrix-build.yml'])if(!existsSync(path.join(root,rel)))errors.push('Missing architecture component '+rel);
 if(errors.length){console.error('Cloudflare topology validation failed:\n'+errors.map(e=>' - '+e).join('\n'));process.exit(1);}
 console.log('Validated five Worker configs, required bindings, three Pages manifests and production workflow.');
 if(!production)console.log('Resource placeholders are allowed in local config validation. Run with --production after provisioning.');

@@ -53,7 +53,7 @@ Keystore/chứng chỉ chỉ được sử dụng trong runner cách ly. Không 
 - CI: `.github/workflows/ci-test.yml`.
 - Runtime secret sync: `.github/workflows/secrets-sync.yml` (manual, cần nhập `SYNC`).
 - Security audit: `.github/workflows/security-checks.yml`.
-- Domain sync: `.github/workflows/sync-domains.yml`.
+- Domain sync: `.github/workflows/sync-domains.yml`.\n- Native release/signing matrix: `.github/workflows/matrix-build.yml` (manual; requires actual platform projects under `native/`).\n- Artifact manifest and checksum generation: `scripts/generate-release-manifest.mjs`; R2 publisher verifies SHA-256 before upload.
 
 Pipeline tạo/tái sử dụng D1/KV/R2/Queues, cập nhật Wrangler IDs/vars, áp migration, deploy năm Workers, sync secrets, cấu hình Telegram/GitHub webhooks, build/deploy ba Pages và đồng bộ CORS cuối cùng. Không chạy hai production pipeline đồng thời.
 
@@ -72,14 +72,14 @@ pnpm --filter @hendy/web-user build
 ```
 
 ## Native signing
-Signing secrets không tự tạo app native. APK/AAB, IPA, EXE/MSIX hoặc DMG/PKG cần source project tương ứng, toolchain/runner phù hợp, signature verification, checksum và các bước Apple signing/notarization khi cần. Không phát hành placeholder artifacts.
+Signing secrets không tự tạo app native. Workflow matrix kiểm tra chữ ký và tạo manifest/checksum, sau đó upload file cùng manifest vào private R2. APK/AAB, IPA, EXE/MSIX hoặc DMG/PKG vẫn cần source project tương ứng tại `native/android`, `native/ios`, `native/windows`, `native/macos`; các source roots này hiện chưa có trong monorepo nên target sẽ dừng rõ ràng thay vì phát hành placeholder artifacts. iOS/macOS cần runner macOS, signing material, provisioning/notarization hợp lệ.
 
 ## Realtime admin monitoring
 
-The Platform API exports `AdminLiveSession`, a Durable Object defined in `workers/platform-api/src/realtime/ws-durable-object.js`. The API checks the signed user session and administrator allowlist before it forwards `/api/admin/live/ws) to the Durable Object. The browser token is carried in an authentication subprotocol (not a query string) and stripped before forwarding. The stream emits only sanitized audit/queue status metadata; it is read-only from the browser side.
+The Platform API exports `AdminLiveSession`, a Durable Object defined in `workers/platform-api/src/realtime/ws-durable-object.js`. The API checks the signed user session and administrator allowlist before it forwards `/api/admin/live/ws` to the Durable Object. The browser token is carried in an authentication subprotocol (not a query string) and stripped before forwarding. The stream emits only sanitized audit/queue status metadata; it is read-only from the browser side.
 
-The Queue Processor binds the same object using `script_name = "hendy-platform-api"`, which lets queue job transitions emit `processing`, `queued`, `retry), `completed) and `dead_letter) status events to admin sessions.
+The Queue Processor binds the same object using `script_name = "hendy-platform-api"`, which lets queue job transitions emit `processing`, `queued`, `retry`, `completed` and `dead_letter` status events to admin sessions.
 
 ## Worker development commands
 
-See [WORKERS-DEVELOPMENT.md](WORKERS-DEVELOPMENT.md) for per-Worker dev/deploy/tail commands, CI dry-runs, GitHub CLI workflows, Pages builds, runtime secrets and post-deployment smoke tests.
+See [DEVELOPMENT.md](DEVELOPMENT.md) for per-Worker dev/deploy/tail commands, CI dry-runs, GitHub CLI workflows, Pages builds, runtime secrets and post-deployment smoke tests.

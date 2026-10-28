@@ -1,49 +1,31 @@
 # HendyAppStoreBotTelegram
 
-Monorepo PNPM cho App Store, Telegram Mini App, Admin Studio và Cloudflare platform. Production architecture: **5 Workers + 3 Pages projects**.
+Monorepo PNPM cho app store, Telegram Mini App, Admin Studio và Cloudflare serverless platform: **5 Workers + 3 Pages**.
 
-## Three Pages
-| Project | Source | Output |
-|---|---|---|
-| `hendy-web-admin` | `apps/web-admin` | `apps/web-admin/dist` |
-| `hendy-mini-app` | `apps/mini-app` | `apps/mini-app/dist` |
-| `hendy-web-user` | `apps/web-user` | `apps/web-user/dist` |
+- **Workers:** Platform API, Telegram Bot, Queue Processor, Edge Router, Self-Healing Bot.
+- **Pages:** Web Admin, Telegram Mini App, Web User Storefront.
+- **Shared resources:** D1, private R2, KV, Queues và Durable Object `AdminLiveSession`.
 
-## Five Workers
-| Worker | Trách nhiệm |
-|---|---|
-| `hendy-platform-api` | REST API, Telegram auth, admin authorization, releases, D1/R2, feature flags |
-| `hendy-telegram-bot` | Telegram webhook và commands |
-| `hendy-queue-processor` | Queue jobs, retry/DLQ, broadcast và OTA orchestration |
-| `hendy-edge-router` | Maintenance gate, device-aware routing và service binding |
-| `hendy-self-healing-bot` | Signed GitHub webhook, replay protection và workflow retry allowlist |
+## Start developing
 
-Shared resources: D1 `hendyappstore-db`, private R2 `hendy-app-releases`, KV `hendy-appstore-dedupe`, Queues `hendy-jobs` và `hendy-jobs-dlq`.
-
-## Deploy
-Production pipeline: [Deploy Cloudflare Platform](.github/workflows/deploy-cloudflare.yml). Pipeline provisions resources, applies migrations, deploys five Workers, syncs runtime secrets, configures webhooks, builds/deploys three Pages, and syncs final API/CORS URLs.
-
-Required Actions Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SESSION_SECRET` (32+ random bytes), `ADMIN_TELEGRAM_IDS`, `HENDY_GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`.
-
-Optional Actions Variables: `WORKER_SUBDOMAIN`, `WORKER_API_URL`, `TELEGRAM_BOT_WORKER_URL`, `SELF_HEALING_WORKER_URL`, domain override variables, `BOT_USERNAME`, `BANK_SYNC_URL`, `TASKS_CONFIG_JSON`, `MINIGAME_CONFIG_JSON`.
-
-## Local development
-Node.js 22.12+ and pnpm 10.18.0:
-```bash
+```powershell
 corepack enable
 corepack prepare pnpm@10.18.0 --activate
 pnpm install --no-frozen-lockfile
 pnpm run preflight:cloudflare
-pnpm check
+pnpm run check:workers
+pnpm migrate:local
 pnpm test
-pnpm --filter @hendy/web-admin build
-pnpm --filter @hendy/mini-app build
-pnpm --filter @hendy/web-user build
 ```
 
-Read [deployment guide](docs/CLOUDFLARE-DEPLOYMENT.md), [architecture](docs/ARCHITECTURE.md), [environment guide](docs/ENVIRONMENT.md), and [security guide](docs/SECURITY.md).
+Run all five local Wrangler workers: `pnpm dev:all-workers`. Default ports: API 8787, Telegram 8788, Queue 8789, Edge 8790, Self-Healing 8791. Run the three Vite apps separately with `pnpm dev:pages:admin`, `pnpm dev:pages:miniapp`, and `pnpm dev:pages:store`.
 
-## Security
-Admin UI is not an authorization boundary; API routes must enforce admin permissions. Secrets must be encrypted with the GitHub repository public key before GitHub API calls and must never be logged or read back. Keep R2 private and use short-lived download tickets. Rotate any token that may have appeared in Git history.
+See [Development guide](docs/DEVELOPMENT.md), [Architecture](docs/ARCHITECTURE.md), [Cloudflare deploy instructions](docs/CLOUDFLARE-DEPLOYMENT.md) and [Environment variables](docs/ENVIRONMENT.md).
 
-Native signing secrets do not create native projects by themselves. Signed releases require platform source, isolated runners, signature verification, checksums and Apple notarization where applicable.
+## Production
+
+Use GitHub Actions → **Deploy Cloudflare Platform** to provision resources, apply D1 migrations, deploy the five Workers, sync runtime secrets/webhooks and build/deploy three Pages. Do not deploy Wrangler configs that still include `REPLACE_WITH_...`.
+
+Native signing is a separate manual workflow: [Native Release Matrix](.github/workflows/matrix-build.yml). It requires real native source projects under `native/android`, `native/ios`, `native/windows`, `native/macos` and matching signing secrets. These native source roots are not currently present, so the workflow intentionally reports a clear missing-source error rather than packaging a fake binary.
+
+**Security:** do not commit .dev.vars, bot tokens, Cloudflare tokens, signing certificates or keystores. Rotate any credential that may have been exposed in previous Git history.

@@ -80,7 +80,7 @@ Secret keystore/certificate chỉ là đầu vào. Build APK/AAB, IPA, EXE/MSIX 
 
 ## 10. Phát triển riêng từng Worker và kiểm tra binding
 
-Dùng [WORKERS-DEVELOPMENT.md](WORKERS-DEVELOPMENT.md) làm runbook chi tiết. Các lệnh root đã có sẵn:
+Dùng [DEVELOPMENT.md](DEVELOPMENT.md) làm runbook chi tiết. Các lệnh root đã có sẵn:
 
 | Tác vụ | Lệnh |
 |---|---|
@@ -94,3 +94,8 @@ Dùng [WORKERS-DEVELOPMENT.md](WORKERS-DEVELOPMENT.md) làm runbook chi tiết. 
 | Self-healing dev/deploy/tail | `pnpm run dev:self-healing` / `pnpm run deploy:self-healing` / `pnpm run tail:self-healing` |
 
 CI chạy cùng các bước topology-check và Wrangler dry-run để bắt lỗi entrypoint/binding/build trước khi có production credentials. Dry-run không deploy; deployment production vẫn do workflow Deploy Cloudflare Platform điều phối.
+
+
+## 11. Native Release Matrix
+
+Workflow `.github/workflows/matrix-build.yml` builds only real source projects under `native/android`, `native/ios`, `native/windows` and `native/macos`. It verifies platform signing and SHA-256 manifest before publishing to private R2. The native source roots are not present yet, so the workflow deliberately fails with a precise missing-source message until each actual project is added. See [DEVELOPMENT.md](DEVELOPMENT.md) for signing secrets, required project layouts and commands.

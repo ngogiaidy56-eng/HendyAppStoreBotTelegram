@@ -28,9 +28,9 @@
     "provision:cloudflare:resources": "node scripts/provision-cloudflare-resources.mjs",
     "sync:cloudflare:urls": "node scripts/sync-deployment-domains.mjs all",
     "preflight:cloudflare": "node scripts/cloudflare-preflight.mjs all",
-    "test": "pnpm --filter @hendy/platform-api test && python scripts/test_db.py && node --test packages/feature-flags/test/*.test.js && pnpm --filter @hendy/mini-app test",
+    "test": "pnpm --filter @hendy/platform-api test && python scripts/test_db.py && node --test packages/feature-flags/test/*.test.js && pnpm --filter @hendy/mini-app test && node --test scripts/__tests__/*.test.mjs",
     "check": "pnpm --filter @hendy/platform-api check && node scripts/check-workspace.js",
-    "migrate:local": "pnpm --filter @hendy/platform-api migrate:local",
+    "migrate:local": "node scripts/migrate-local.mjs",
     "migrate:remote": "pnpm --filter @hendy/platform-api migrate:remote",
     "prepare": "husky",
     "configure:wrangler": "node scripts/configure-wrangler.mjs",
@@ -54,6 +54,9 @@
     "tail:self-healing": "pnpm exec wrangler tail --config workers/self-healing-bot/wrangler.toml",
     "check:topology": "node scripts/check-cloudflare-topology.mjs",
     "dry-run:workers": "node scripts/dry-run-workers.mjs",
-    "check:workers": "pnpm run check:topology && pnpm run dry-run:workers"
+    "check:workers": "pnpm run check:topology && pnpm run dry-run:workers",
+    "dev:all-workers": "node scripts/dev-all-workers.mjs",
+    "release:manifest": "node scripts/generate-release-manifest.mjs",
+    "release:upload-r2": "node scripts/upload-release-r2.mjs"
   }
 }
