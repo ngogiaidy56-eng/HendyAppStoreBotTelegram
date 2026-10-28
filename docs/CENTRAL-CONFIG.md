@@ -17,7 +17,7 @@ Create these in **Settings → Secrets and variables → Actions** (repository s
 - `CLOUDFLARE_API_TOKEN`: Cloudflare API token permitted to read Pages project metadata, deploy Pages/Workers, and update runtime secrets.
 - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare account identifier. Although it is not a password, keep it in the secret list because existing deploy workflows expect it there.
 - `HENDY_GITHUB_TOKEN`: least-privilege repository token with Actions variables and secrets read/write permissions and workflow-dispatch access. This allows the Worker API and domain-sync script to call the GitHub API.
-- Existing runtime secrets such as `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SESSION_SECRET`, and `ADMIN_TELEGRAM_IDS`.
+- Existing runtime secrets such as `BOT_TOKEN` (Mini App signature verification only), `SESSION_SECRET`, and `ADMIN_TELEGRAM_IDS`. The Telegram Bot Worker and webhook secret have been removed.
 
 ### Variables
 

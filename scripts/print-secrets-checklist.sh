@@ -2,8 +2,8 @@
 set -euo pipefail
 cat <<'TXT'
 Configure these as Cloudflare Worker secrets (not frontend VITE_ variables):
+  BOT_TOKEN (only if the Telegram Mini App remains enabled; not used by a bot Worker)
   BOT_TOKEN
-  BOT_WEBHOOK_SECRET
   SESSION_SECRET (>= 32 random characters)
   ADMIN_TELEGRAM_IDS (comma-separated numeric Telegram user IDs)
   BANK_WEBHOOK_SECRET (only when a provider adapter is configured)

@@ -20,14 +20,13 @@ concurrency:
   cancel-in-progress: false
 jobs:
   deploy:
-    name: Deploy Workers and three Pages projects
+    name: Deploy four Workers and three Pages projects
     runs-on: ubuntu-latest
     environment: production
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
-      BOT_WEBHOOK_SECRET: ${{ secrets.BOT_WEBHOOK_SECRET }}
       SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
       ADMIN_TELEGRAM_IDS: ${{ secrets.ADMIN_TELEGRAM_IDS }}
       HENDY_GITHUB_TOKEN: ${{ secrets.HENDY_GITHUB_TOKEN }}
@@ -52,7 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID BOT_TOKEN BOT_WEBHOOK_SECRET SESSION_SECRET ADMIN_TELEGRAM_IDS HENDY_GITHUB_TOKEN GITHUB_WEBHOOK_SECRET; do
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID BOT_TOKEN SESSION_SECRET ADMIN_TELEGRAM_IDS HENDY_GITHUB_TOKEN GITHUB_WEBHOOK_SECRET; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Missing required GitHub Actions secret: $name"
               exit 1
@@ -61,13 +60,12 @@ jobs:
       - name: Provision or reuse D1, KV, R2 and Queues
         id: resources
         run: node scripts/provision-cloudflare-resources.mjs
-      - name: Ensure three Pages projects and detect API/bot URLs
+      - name: Ensure three Pages projects and detect API/Self-Healing URLs
         id: domains
         env:
           HENDY_GITHUB_TOKEN: ${{ secrets.HENDY_GITHUB_TOKEN }}
           WORKER_SUBDOMAIN: ${{ vars.WORKER_SUBDOMAIN }}
           WORKER_API_URL: ${{ vars.WORKER_API_URL }}
-          TELEGRAM_BOT_WORKER_URL: ${{ vars.TELEGRAM_BOT_WORKER_URL }}
           SELF_HEALING_WORKER_URL: ${{ vars.SELF_HEALING_WORKER_URL }}
           MINIAPP_DOMAIN_OVERRIDE: ${{ vars.MINIAPP_DOMAIN_OVERRIDE }}
           ADMIN_DOMAIN_OVERRIDE: ${{ vars.ADMIN_DOMAIN_OVERRIDE }}
@@ -118,8 +116,6 @@ jobs:
         run: pnpm exec wrangler d1 migrations apply hendyappstore-db --remote --config workers/platform-api/wrangler.toml
       - name: Deploy platform API Worker
         run: pnpm exec wrangler deploy --config workers/platform-api/wrangler.toml
-      - name: Deploy Telegram bot Worker
-        run: pnpm exec wrangler deploy --config workers/telegram-bot/wrangler.toml
       - name: Deploy Queue processor Worker
         run: pnpm exec wrangler deploy --config workers/queue-processor/wrangler.toml
       - name: Deploy edge router Worker
@@ -151,19 +147,10 @@ jobs:
           put_secret workers/platform-api/wrangler.toml BANK_API_SECRET "$BANK_API_SECRET"
           put_secret workers/platform-api/wrangler.toml GITHUB_TOKEN "$HENDY_GITHUB_TOKEN"
           put_secret workers/platform-api/wrangler.toml GITHUB_WEBHOOK_SECRET "$GITHUB_WEBHOOK_SECRET"
-          put_secret workers/telegram-bot/wrangler.toml BOT_TOKEN "$BOT_TOKEN"
-          put_secret workers/telegram-bot/wrangler.toml BOT_WEBHOOK_SECRET "$BOT_WEBHOOK_SECRET"
-          put_secret workers/telegram-bot/wrangler.toml ADMIN_TELEGRAM_IDS "$ADMIN_TELEGRAM_IDS"
-          put_secret workers/telegram-bot/wrangler.toml GITHUB_TOKEN "$HENDY_GITHUB_TOKEN"
-          put_secret workers/queue-processor/wrangler.toml BOT_TOKEN "$BOT_TOKEN"
           put_secret workers/queue-processor/wrangler.toml GITHUB_TOKEN "$HENDY_GITHUB_TOKEN"
           put_secret workers/queue-processor/wrangler.toml BANK_SYNC_SECRET "$BANK_SYNC_SECRET"
           put_secret workers/self-healing-bot/wrangler.toml GITHUB_TOKEN "$HENDY_GITHUB_TOKEN"
           put_secret workers/self-healing-bot/wrangler.toml WEBHOOK_SECRET "$GITHUB_WEBHOOK_SECRET"
-      - name: Configure Telegram webhook
-        env:
-          TELEGRAM_BOT_WORKER_URL: ${{ steps.domains.outputs.telegram_bot_url }}
-        run: node scripts/configure-telegram-webhook.mjs
       - name: Configure GitHub self-healing webhook
         env:
           HENDY_GITHUB_TOKEN: ${{ secrets.HENDY_GITHUB_TOKEN }}
@@ -197,7 +184,6 @@ jobs:
           HENDY_GITHUB_TOKEN: ${{ secrets.HENDY_GITHUB_TOKEN }}
           WORKER_SUBDOMAIN: ${{ vars.WORKER_SUBDOMAIN }}
           WORKER_API_URL: ${{ vars.WORKER_API_URL }}
-          TELEGRAM_BOT_WORKER_URL: ${{ vars.TELEGRAM_BOT_WORKER_URL }}
           SELF_HEALING_WORKER_URL: ${{ vars.SELF_HEALING_WORKER_URL }}
           MINIAPP_DOMAIN_OVERRIDE: ${{ vars.MINIAPP_DOMAIN_OVERRIDE }}
           ADMIN_DOMAIN_OVERRIDE: ${{ vars.ADMIN_DOMAIN_OVERRIDE }}
@@ -206,7 +192,7 @@ jobs:
           ADMIN_PAGES_PROJECT: hendy-web-admin
           WEB_USER_PAGES_PROJECT: hendy-web-user
         run: node scripts/sync-deployment-domains.mjs all
-      - name: Apply final URLs and CORS to API/Bot Workers
+      - name: Apply final URLs and CORS to API and dependent Workers
         env:
           CLOUDFLARE_WORKER_TARGET: all
           CLOUDFLARE_D1_DATABASE_ID: ${{ steps.resources.outputs.d1_id }}
@@ -233,4 +219,6 @@ jobs:
         run: |
           node scripts/configure-wrangler.mjs
           pnpm exec wrangler deploy --config workers/platform-api/wrangler.toml
-          pnpm exec wrangler deploy --config workers/telegram-bot/wrangler.toml
+          pnpm exec wrangler deploy --config workers/queue-processor/wrangler.toml
+          pnpm exec wrangler deploy --config workers/edge-router/wrangler.toml
+          pnpm exec wrangler deploy --config workers/self-healing-bot/wrangler.toml

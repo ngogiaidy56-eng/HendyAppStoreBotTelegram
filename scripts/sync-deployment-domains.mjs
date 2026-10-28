@@ -53,16 +53,14 @@ const specs=[
 const pageUrls={};
 for(const spec of specs){const p=await ensureProject(spec.name);pageUrls[spec.key]=await projectUrl(p,spec.override,spec.label);}
 const apiOverride=String(process.env.WORKER_API_URL||'').trim();
-const botOverride=String(process.env.TELEGRAM_BOT_WORKER_URL||'').trim();
 const healingOverride=String(process.env.SELF_HEALING_WORKER_URL||'').trim();
 let sub='';
-if(!apiOverride||!botOverride||!healingOverride)sub=await workerSubdomain();
+if(!apiOverride||!healingOverride)sub=await workerSubdomain();
 const apiUrl=apiOverride?httpsOrigin(apiOverride,'WORKER_API_URL'):'https://hendy-platform-api.'+sub+'.workers.dev';
-const botUrl=botOverride?httpsOrigin(botOverride,'TELEGRAM_BOT_WORKER_URL'):'https://hendy-telegram-bot.'+sub+'.workers.dev';
 const healingUrl=healingOverride?httpsOrigin(healingOverride,'SELF_HEALING_WORKER_URL'):'https://hendy-self-healing-bot.'+sub+'.workers.dev';
 const cors=[...new Set([pageUrls.miniapp,pageUrls.admin,pageUrls.web_user])].map(x=>new URL(x).origin).join(',');
 const values={
- api_url:apiUrl,telegram_bot_url:botUrl,telegram_webhook_url:botUrl+'/telegram/webhook',self_healing_worker_url:healingUrl,
+ api_url:apiUrl,self_healing_worker_url:healingUrl,
  miniapp_url:pageUrls.miniapp,admin_url:pageUrls.admin,web_user_url:pageUrls.web_user,cors_origins:cors
 };
 if(process.env.GITHUB_OUTPUT)await appendFile(process.env.GITHUB_OUTPUT,Object.entries(values).map(([k,v])=>k+'='+String(v).replace(/[\r\n]/g,'')).join('\n')+'\n');
@@ -72,7 +70,7 @@ if(ghToken){
  async function gh(endpoint,init={}){const r=await fetch('https://api.github.com/repos/'+owner+'/'+repo+endpoint,{...init,headers:{...ghHeaders,...(init.headers||{})}});if(!r.ok)throw new Error('GitHub API '+endpoint+' failed ('+r.status+')');if(r.status===204)return null;return r.json();}
  try{
   const list=await gh('/actions/variables?per_page=100');const names=new Set((list.variables||[]).map(x=>x.name));
-  const vars={VITE_API_BASE_URL:apiUrl,API_WORKER_URL:apiUrl,WORKER_API_URL:apiUrl,TELEGRAM_BOT_WORKER_URL:botUrl,SELF_HEALING_WORKER_URL:healingUrl,APP_URL:pageUrls.miniapp,ADMIN_URL:pageUrls.admin,STOREFRONT_URL:pageUrls.web_user,MINIAPP_PUBLIC_URL:pageUrls.miniapp,ADMIN_PUBLIC_URL:pageUrls.admin,STOREFRONT_PUBLIC_URL:pageUrls.web_user,CORS_ORIGINS:cors};
+  const vars={VITE_API_BASE_URL:apiUrl,API_WORKER_URL:apiUrl,WORKER_API_URL:apiUrl,SELF_HEALING_WORKER_URL:healingUrl,APP_URL:pageUrls.miniapp,ADMIN_URL:pageUrls.admin,STOREFRONT_URL:pageUrls.web_user,MINIAPP_PUBLIC_URL:pageUrls.miniapp,ADMIN_PUBLIC_URL:pageUrls.admin,STOREFRONT_PUBLIC_URL:pageUrls.web_user,CORS_ORIGINS:cors};
   for(const [name,value] of Object.entries(vars)){const body=JSON.stringify({name,value});if(names.has(name))await gh('/actions/variables/'+encodeURIComponent(name),{method:'PATCH',body});else{await gh('/actions/variables',{method:'POST',body});names.add(name);}}
   console.log('Persisted Pages/Worker URLs as GitHub Actions Variables.');
  }catch(e){console.warn('GitHub Variables not updated; this run still uses detected outputs. '+String(e.message||e));}

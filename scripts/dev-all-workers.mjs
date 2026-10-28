@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process';
 
-const targets=['platform-api','telegram-bot','queue-processor','edge-router','self-healing-bot'];
+const targets=['platform-api','queue-processor','edge-router','self-healing-bot'];
 const children=[];
 let stopping=false;
 const command=process.execPath;
@@ -26,5 +26,5 @@ function stop(code=0){
 }
 process.on('SIGINT',()=>stop(130));
 process.on('SIGTERM',()=>stop(143));
-console.log('Started all five local Wrangler dev processes. Default ports: API 8787, Telegram 8788, Queue 8789, Edge 8790, Self-healing 8791.');
+console.log('Started all four local Wrangler dev processes. Default ports: API 8787, Queue 8788, Edge 8789, Self-healing 8790.');
 console.log('Press Ctrl+C to stop every local Worker. Local service bindings and local secrets may still need explicit configuration.');

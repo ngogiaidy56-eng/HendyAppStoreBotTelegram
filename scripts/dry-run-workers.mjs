@@ -7,7 +7,7 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const tempRoot=await mkdtemp(path.join(os.tmpdir(),'hendy-wrangler-dry-run-'));
 const dummyD1='00000000-0000-4000-8000-000000000000';
 const dummyKv='00000000000000000000000000000000';
-const targets=['platform-api','telegram-bot','queue-processor','edge-router','self-healing-bot'];
+const targets=['platform-api','queue-processor','edge-router','self-healing-bot'];
 const restores=[];
 try{
  for(const target of targets){
@@ -23,5 +23,5 @@ try{
   if(result.error)throw new Error('Could not start Wrangler for '+target+': '+result.error.message);
   if(result.status!==0)throw new Error('Wrangler dry-run failed for '+target+' (exit '+result.status+')');
  }
- console.log('\nAll five Worker bundles passed Wrangler dry-run; no deployment was performed.');
+ console.log('\nAll four Worker bundles passed Wrangler dry-run; no deployment was performed.');
 }finally{for(const item of restores.reverse())await writeFile(item.configPath,item.original);await rm(tempRoot,{recursive:true,force:true});}

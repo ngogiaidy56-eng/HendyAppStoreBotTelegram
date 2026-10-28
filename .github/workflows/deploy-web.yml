@@ -8,4 +8,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "::notice::Use the Deploy Cloudflare Platform workflow to build/deploy hendy-web-admin, hendy-mini-app, and hendy-web-user with VITE_API_BASE_URL automatically injected."
+          echo "::notice::Use the Deploy Cloudflare Platform workflow to build/deploy hendy-web-admin, hendy-mini-app, and hendy-web-user (no Telegram Bot Worker) with VITE_API_BASE_URL automatically injected."

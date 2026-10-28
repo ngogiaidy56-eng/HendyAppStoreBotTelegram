@@ -8,5 +8,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "::notice::Use the Deploy Cloudflare Platform workflow. It deploys all five Workers and the three Pages projects in the correct order."
+          echo "::notice::Use the Deploy Cloudflare Platform workflow. It deploys four Workers and three Pages projects in the correct order."
           echo "This workflow is intentionally manual to avoid competing production deployments."

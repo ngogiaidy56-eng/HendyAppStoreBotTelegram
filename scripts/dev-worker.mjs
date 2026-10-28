@@ -4,10 +4,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const defaultPorts = { 'platform-api':8787, 'telegram-bot':8788, 'queue-processor':8789, 'edge-router':8790, 'self-healing-bot':8791 };
+const defaultPorts = { 'platform-api':8787, 'queue-processor':8788, 'edge-router':8789, 'self-healing-bot':8790 };
 const targets=new Set(Object.keys(defaultPorts));
 const target=String(process.argv[2]||'').trim();
-if(!targets.has(target)){console.error('Usage: node scripts/dev-worker.mjs <platform-api|telegram-bot|queue-processor|edge-router|self-healing-bot> [--port 8787]');process.exit(2);}
+if(!targets.has(target)){console.error('Usage: node scripts/dev-worker.mjs <platform-api|queue-processor|edge-router|self-healing-bot> [--port 8787]');process.exit(2);}
 const portIndex=process.argv.indexOf('--port');
 const port=portIndex>=0?Number(process.argv[portIndex+1]):defaultPorts[target];
 if(!Number.isInteger(port)||port<1024||port>65535){console.error('--port must be an integer between 1024 and 65535.');process.exit(2);}

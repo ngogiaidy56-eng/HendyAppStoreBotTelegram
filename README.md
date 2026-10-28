@@ -1,12 +1,25 @@
-# HendyAppStoreBotTelegram
+# HendyAppStore
 
-Monorepo PNPM cho app store, Telegram Mini App, Admin Studio và Cloudflare serverless platform: **5 Workers + 3 Pages**.
+Monorepo PNPM cho App Store, Admin Studio, Telegram Mini App và Cloudflare serverless platform. Kiến trúc triển khai hiện tại là **4 Workers + 3 Pages**; Telegram Bot Worker, webhook và lệnh Bot đã được gỡ bỏ.
 
-- **Workers:** Platform API, Telegram Bot, Queue Processor, Edge Router, Self-Healing Bot.
-- **Pages:** Web Admin, Telegram Mini App, Web User Storefront.
-- **Shared resources:** D1, private R2, KV, Queues và Durable Object `AdminLiveSession`.
+## Cloudflare Workers (4)
 
-## Start developing
+- `hendy-platform-api` — REST API, xác thực session, quyền Admin, D1/R2, release tickets, cấu hình và audit.
+- `hendy-queue-processor` — Queue jobs, retry/DLQ, đồng bộ nhà cung cấp và OTA workflow dispatch.
+- `hendy-edge-router` — maintenance gate, phân loại thiết bị/layout, Service Binding tới Platform API.
+- `hendy-self-healing-bot` — GitHub webhook có chữ ký HMAC, chống lặp bằng KV và retry workflow allowlist. Tên “self-healing bot” không phải Telegram Bot.
+
+## Cloudflare Pages (3)
+
+- `hendy-web-admin` — `apps/web-admin`
+- `hendy-mini-app` — `apps/mini-app`
+- `hendy-web-user` — `apps/web-user`
+
+**Lưu ý:** Telegram Mini App vẫn được giữ, vì vậy Platform API vẫn cần `BOT_TOKEN` để xác minh chữ ký `initData` của Mini App và `ADMIN_TELEGRAM_IDS` để phân quyền quản trị. Không còn Telegram Bot Worker, webhook, lệnh bot hoặc tin nhắn broadcast qua Bot. Mục “Thông báo trong ứng dụng” chỉ ghi thông báo vào hộp thư Mini App.
+
+## Local development
+
+Yêu cầu Node.js 22.12+ và pnpm 10.18.0:
 
 ```powershell
 corepack enable
@@ -18,14 +31,18 @@ pnpm migrate:local
 pnpm test
 ```
 
-Run all five local Wrangler workers: `pnpm dev:all-workers`. Default ports: API 8787, Telegram 8788, Queue 8789, Edge 8790, Self-Healing 8791. Run the three Vite apps separately with `pnpm dev:pages:admin`, `pnpm dev:pages:miniapp`, and `pnpm dev:pages:store`.
+Chạy cả bốn Workers local bằng `pnpm dev:all-workers`. Các cổng mặc định: API 8787, Queue 8788, Edge 8789, Self-Healing 8790. Chạy Pages trong terminal riêng bằng `pnpm dev:pages:admin`, `pnpm dev:pages:miniapp`, và `pnpm dev:pages:store`.
 
-See [Development guide](docs/DEVELOPMENT.md), [Architecture](docs/ARCHITECTURE.md), [Cloudflare deploy instructions](docs/CLOUDFLARE-DEPLOYMENT.md) and [Environment variables](docs/ENVIRONMENT.md).
+Xem [hướng dẫn phát triển](docs/DEVELOPMENT.md), [kiến trúc](docs/ARCHITECTURE.md), [hướng dẫn triển khai](docs/CLOUDFLARE-DEPLOYMENT.md) và [biến môi trường](docs/ENVIRONMENT.md).
 
-## Production
+## Production deployment
 
-Use GitHub Actions → **Deploy Cloudflare Platform** to provision resources, apply D1 migrations, deploy the five Workers, sync runtime secrets/webhooks and build/deploy three Pages. Do not deploy Wrangler configs that still include `REPLACE_WITH_...`.
+GitHub Actions → **Deploy Cloudflare Platform** provision D1/R2/KV/Queues, apply migrations, deploy bốn Workers, đồng bộ runtime secrets và triển khai ba Pages. Không còn bước cấu hình Telegram webhook.
 
-Native signing is a separate manual workflow: [Native Release Matrix](.github/workflows/matrix-build.yml). It requires real native source projects under `native/android`, `native/ios`, `native/windows`, `native/macos` and matching signing secrets. These native source roots are not currently present, so the workflow intentionally reports a clear missing-source error rather than packaging a fake binary.
+## Secrets và bảo mật
 
-**Security:** do not commit .dev.vars, bot tokens, Cloudflare tokens, signing certificates or keystores. Rotate any credential that may have been exposed in previous Git history.
+- `BOT_TOKEN` chỉ dùng cho xác thực Mini App ở Platform API; không đưa vào frontend hoặc Queue Processor.
+- Không còn yêu cầu `BOT_WEBHOOK_SECRET`.
+- Không commit `.dev.vars`, API tokens, PFX/P12, signing certificates hoặc keystore.
+- Một bot token từng nằm trong phiên bản cũ của `.env.example`. Hãy thu hồi/đổi token đó trong BotFather nếu nó từng hợp lệ; chỉnh sửa commit hiện tại không xóa được giá trị khỏi Git history.
+- Các workflow ký native cần mã nguồn thực tế trong `native/android`, `native/ios`, `native/windows`, `native/macos`; các thư mục này chưa được cung cấp và workflow sẽ báo thiếu nguồn thay vì đóng gói binary giả.

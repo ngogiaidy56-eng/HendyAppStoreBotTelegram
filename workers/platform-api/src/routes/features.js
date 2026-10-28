@@ -248,23 +248,18 @@ async function adminBroadcast(request, env) {
   const body = assertString(value.body, 'body', 3500);
   const kind = ['info','success','warning','maintenance'].includes(value.kind) ? value.kind : 'info';
   const id = crypto.randomUUID();
-  const jobId = crypto.randomUUID();
   const now = nowSeconds();
   const recipientCount = await env.DB.prepare('SELECT COUNT(*) AS count FROM users WHERE is_banned=0').first();
-  await env.DB.batch([
-    env.DB.prepare('INSERT INTO notifications(id,user_id,title,body,kind,created_at) SELECT lower(hex(randomblob(16))),id,?,?,?,? FROM users WHERE is_banned=0').bind(title,body,kind,now),
-    env.DB.prepare("INSERT INTO queue_jobs(id,job_type,payload_json,status,attempts,available_at,created_at,updated_at) VALUES(?, 'bot_broadcast', ?, 'pending', 0, ?, ?, ?)").bind(jobId, JSON.stringify({ title, body, cursor: '' }), now, now, now),
-  ]);
-  if (env.JOBS) {
-    try { await env.JOBS.send({ jobId }); }
-    catch (error) { console.error('queue_send_failed', { error: error?.message || 'unknown' }); }
-  }
-  await recordAudit(env, user.telegram_id, 'broadcast.create', 'broadcast', id, { recipientCount: recipientCount.count, kind });
-  return json({ ok: true, broadcastId: id, recipients: recipientCount.count, queued: !!env.JOBS }, 201);
+  await env.DB.prepare('INSERT INTO notifications(id,user_id,title,body,kind,created_at) SELECT lower(hex(randomblob(16))),id,?,?,?,? FROM users WHERE is_banned=0')
+    .bind(title, body, kind, now).run();
+  await recordAudit(env, user.telegram_id, 'notification.broadcast', 'in_app_notification', id, {
+    recipientCount: Number(recipientCount?.count || 0), kind,
+  });
+  return json({ ok: true, broadcastId: id, recipients: Number(recipientCount?.count || 0), channel: 'in_app' }, 201);
 }
 
 const MANAGED_GITHUB_SECRET_KEYS = new Set([
-  'BOT_TOKEN','BOT_WEBHOOK_SECRET','SESSION_SECRET','ADMIN_TELEGRAM_IDS',
+  'BOT_TOKEN','SESSION_SECRET','ADMIN_TELEGRAM_IDS',
   'BANK_WEBHOOK_SECRET','BANK_API_KEY','BANK_API_SECRET','GITHUB_WEBHOOK_SECRET',
   'CLOUDFLARE_API_TOKEN','CLOUDFLARE_ACCOUNT_ID','HENDY_GITHUB_TOKEN',
   'ANDROID_KEYSTORE_BASE64','ANDROID_KEYSTORE_PASSWORD','ANDROID_KEY_ALIAS','ANDROID_KEY_PASSWORD',

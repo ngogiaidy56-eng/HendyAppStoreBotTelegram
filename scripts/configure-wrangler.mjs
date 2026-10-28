@@ -3,13 +3,13 @@ import path from 'node:path';
 
 const root = process.cwd();
 const requestedTarget = String(process.env.CLOUDFLARE_WORKER_TARGET || 'all').trim().toLowerCase();
-const supportedTargets = ['platform-api', 'telegram-bot', 'queue-processor', 'edge-router', 'self-healing-bot'];
+const supportedTargets = ['platform-api', 'queue-processor', 'edge-router', 'self-healing-bot'];
 if (requestedTarget !== 'all' && !supportedTargets.includes(requestedTarget)) {
   console.error('CLOUDFLARE_WORKER_TARGET must be all or one of: ' + supportedTargets.join(', '));
   process.exit(1);
 }
 const selectedTargets = requestedTarget === 'all' ? supportedTargets : [requestedTarget];
-const needsD1 = selectedTargets.some((name) => ['platform-api', 'telegram-bot', 'queue-processor', 'edge-router'].includes(name));
+const needsD1 = selectedTargets.some((name) => ['platform-api', 'queue-processor', 'edge-router'].includes(name));
 const needsKv = selectedTargets.includes('self-healing-bot');
 const d1 = String(process.env.CLOUDFLARE_D1_DATABASE_ID || '').trim();
 const kv = String(process.env.CLOUDFLARE_DEDUPE_KV_NAMESPACE_ID || '').trim();
@@ -33,7 +33,6 @@ const workerOverrides = {
     'SESSION_TTL_SECONDS','MAX_INIT_DATA_AGE_SECONDS','BANK_ID','BANK_ACCOUNT_NUMBER',
     'BANK_ACCOUNT_NAME','TASKS_CONFIG_JSON','MINIGAME_CONFIG_JSON',
   ],
-  'telegram-bot': ['APP_URL','ADMIN_URL','BOT_USERNAME','REFERRAL_REWARD_VND','TASKS_CONFIG_JSON','MINIGAME_CONFIG_JSON','GITHUB_OWNER','GITHUB_REPO'],
   'queue-processor': ['TASKS_CONFIG_JSON','MINIGAME_CONFIG_JSON','BANK_SYNC_URL','GITHUB_OWNER','GITHUB_REPO'],
   'self-healing-bot': ['GITHUB_OWNER','GITHUB_REPO'],
 };

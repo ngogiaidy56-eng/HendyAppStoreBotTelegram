@@ -1,63 +1,45 @@
 # Deployment runbook
 
-## 1. Local prerequisites
+## 1. Prerequisites
 
-- Node.js 22 or newer.
-- PNPM 10.18 or compatible 10.x.
-- Python 3.10+ for the SQLite migration/business-invariant tests.
-- A Cloudflare account with Workers, D1, R2, KV, Queues and Pages access.
-- A GitHub repository with Actions enabled.
+- Node.js 22.12+ and pnpm 10.18.0.
+- Python 3.10+ for SQLite/database tests.
+- Cloudflare account with Workers, D1, R2, KV, Queues and Pages permissions.
+- GitHub Actions enabled with a protected `production` environment.
 
 ```bash
-pnpm install
+pnpm install --no-frozen-lockfile
 pnpm check
 pnpm test
-pnpm build
+pnpm run check:workers
 ```
 
-`pnpm build`/frontend tests require packages from npm and a working package registry connection.
+## 2. Production architecture
 
-## 2. Create Cloudflare resources first
+Deploy **four Workers plus three Pages**:
+- Workers: `hendy-platform-api`, `hendy-queue-processor`, `hendy-edge-router`, `hendy-self-healing-bot`.
+- Pages: `hendy-web-admin`, `hendy-mini-app`, `hendy-web-user`.
 
-Create a D1 database named `hendyappstore-db`, an R2 bucket named `hendy-app-releases`, a KV namespace for self-healing deduplication, and the Pages projects:
+Telegram Bot Worker/webhook/commands were removed. The Mini App remains optional; if enabled, the API still needs `BOT_TOKEN` for signed WebApp `initData` validation.
 
-- `hendy-mini-app`
-- `hendy-web-admin`
-- `hendy-app-storefront`
+## 3. Secrets
 
-The deploy workflow creates Queues `hendy-jobs` and `hendy-jobs-dlq`. If the account has existing resources under different names, align Wrangler configs and the workflow before deployment.
+Required CI/CD secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `HENDY_GITHUB_TOKEN`, `GITHUB_WEBHOOK_SECRET`. The API requires `SESSION_SECRET`, `ADMIN_TELEGRAM_IDS`, and `BOT_TOKEN` if Telegram Mini App auth is enabled. There is no `BOT_WEBHOOK_SECRET` requirement.
 
-## 3. GitHub Actions environment
-
-Create a protected GitHub Environment named `production`. Add repository/environment **Secrets**:
-
-- `CLOUDFLARE_API_TOKEN` — restricted to the target account and required Workers/D1/R2/Queues/Pages permissions.
-- `CLOUDFLARE_ACCOUNT_ID`.
-- `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SESSION_SECRET` (at least 32 random bytes), `ADMIN_TELEGRAM_IDS`.
-- `BANK_WEBHOOK_SECRET` only when the provider signature contract is configured.
-- `HENDY_GITHUB_TOKEN` — least-privilege token for Actions secrets/workflow dispatch if the UI's GitHub integration is enabled.
-- `GITHUB_WEBHOOK_SECRET` for the self-healing webhook.
-
-Create GitHub **Variables**:
-
-- `CLOUDFLARE_D1_DATABASE_ID` — UUID of the existing D1 database.
-- `CLOUDFLARE_DEDUPE_KV_NAMESPACE_ID` — ID of the existing KV namespace.
-
-Don't paste real secrets into `.env.example` or commit `.dev.vars`. Set Worker secrets through the Sync Runtime Secrets workflow or `wrangler secret put` after reviewing their exact destinations.
+Keep real values only in protected GitHub/Cloudflare Secrets. Do not commit `.dev.vars`, certificates or keystores.
 
 ## 4. Deploy sequence
 
-1. Push to `main` or run `CI Test` manually; require CI to pass.
-2. Verify resource IDs and run `Deploy Workers`. It applies D1 migrations and deploys platform API, Telegram bot, queue processor, edge router and self-healing worker.
-3. Run `Deploy Mini App` and `Deploy Web` after setting `CLOUDFLARE_PAGES_API_TOKEN` if that workflow requires a separate token, plus the Pages project variables in workflow config.
-4. Configure Telegram's webhook URL to the **Telegram bot Worker**, not the platform API: `/telegram/webhook`. Provide the exact `secret_token` matching the Worker secret `BOT_WEBHOOK_SECRET`. Do not set webhook secret values in URLs.
-5. Add exact deployed HTTPS frontend URLs to `CORS_ORIGINS` and the corresponding `APP_URL`, `ADMIN_URL`, and `BOT_USERNAME` variables.
-6. Sign in as a Telegram ID listed in `ADMIN_TELEGRAM_IDS`; create a test product and inventory, then test checkout and insufficient-balance paths on staging.
-7. For deposits, validate the bank provider's event schema, signature algorithm, transaction idempotency and settlement timing in staging before enabling real money.
-8. Protect Admin Studio with Cloudflare Access or an equivalent identity layer; monitor Workers logs and test R2/D1 backup restoration.
+1. Run CI Test and fix actual failures before production.
+2. Run GitHub Actions → **Deploy Cloudflare Platform**.
+3. The workflow provisions/reuses D1/KV/R2/Queues, configures Wrangler resource IDs and applies D1 migrations.
+4. Deploy Platform API, Queue Processor, Edge Router and Self-Healing.
+5. Sync runtime secrets and configure the signed GitHub webhook.
+6. Build/deploy Admin, Mini App and Storefront Pages.
+7. Check API health, queue consumer, Edge Service Binding, WebSocket, CORS and download-ticket authorization.
 
-## 5. Safe push from a local clone
+No Telegram webhook setup is required. In-app notifications are written to D1; the platform no longer sends Telegram broadcast messages.
 
-To import this source into the target repository (including a repository that already has a README or earlier setup commits), run `scripts/push-to-github.ps1` on Windows or `bash scripts/push-to-github.sh` on Linux/macOS from the project root. These wrappers run `scripts/push-to-github.py`, which clones the remote into a sibling working directory, copies source files while excluding local dependencies/build output/secrets/certificates, removes only the interrupted `.bootstrap` staging directory, commits the import, and pushes `HEAD` to `main` without force-pushing. It deliberately stops if its working clone already exists or the local Git commit identity is not configured. Review the copied files and the diff before accepting the resulting commit. The script requires GitHub write access through your locally configured Git credentials; it does not configure Cloudflare or deployment secrets.
+## 5. Token rotation
 
-Never run remote migrations until the D1 ID/account have been independently verified. Deploying does not automatically configure Telegram, a bank provider, custom domains, Apple signing or Cloudflare Access.
+An earlier `.env.example` revision contained a token-shaped value that has now been replaced by a placeholder. Because old commits may still contain that value, revoke/rotate it through BotFather if it was ever valid and update the new token in protected runtime secrets if Mini App authentication is still used. Changing the current file does not erase Git history.

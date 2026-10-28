@@ -1,30 +1,36 @@
-# Environment and secret inventory
+# Environment variables and secrets
 
-## Runtime Worker secrets
+## Required GitHub Actions secrets
 
-| Name | Used by | Notes |
+| Secret | Phạm vi | Mục đích |
 |---|---|---|
-| `BOT_TOKEN` | Telegram bot, queue processor, API integrations | Telegram Bot API token. Never expose to browser. |
-| `BOT_WEBHOOK_SECRET` | Telegram bot Worker | Match Telegram webhook `secret_token`. |
-| `SESSION_SECRET` | Platform API | Random secret at least 32 bytes; used to authenticate session tokens. |
-| `ADMIN_TELEGRAM_IDS` | API and bot | Comma-separated Telegram numeric IDs. |
-| `BANK_WEBHOOK_SECRET` | Platform API | Only for a confirmed provider HMAC contract. |
-| `GITHUB_TOKEN` | Platform API, queue/self-healing as configured | Least privilege for the repository and required workflow operations. |
-| `WEBHOOK_SECRET` | Self-healing Worker | Secret used to verify GitHub webhook signatures. |
+| `CLOUDFLARE_API_TOKEN` | CI/CD | Provision/deploy quyền giới hạn |
+| `CLOUDFLARE_ACCOUNT_ID` | CI/CD | Cloudflare account |
+| `HENDY_GITHUB_TOKEN` | CI/CD/API integration | GitHub workflow/secrets/variables và webhook configuration |
+| `GITHUB_WEBHOOK_SECRET` | Self-Healing Worker | Xác minh chữ ký GitHub webhook |
+| `BOT_TOKEN` | Platform API only, nếu Mini App còn được dùng | Xác minh chữ ký Telegram Mini App `initData`; không xử lý webhook/bot commands |
+| `SESSION_SECRET` | Platform API | Ký session, ít nhất 32 bytes ngẫu nhiên |
+| `ADMIN_TELEGRAM_IDS` | Platform API | Danh sách Telegram ID có quyền admin |
 
-## GitHub Actions secrets
+Không còn yêu cầu `BOT_WEBHOOK_SECRET`; Telegram Bot Worker và chức năng đăng ký Telegram webhook đã bị loại bỏ. Nếu bỏ cả Telegram Mini App sau này, có thể loại bỏ tiếp `BOT_TOKEN`, `ADMIN_TELEGRAM_IDS` và Telegram authentication routes ở một thay đổi riêng.
 
-Configure `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SESSION_SECRET`, `ADMIN_TELEGRAM_IDS`, `BANK_WEBHOOK_SECRET` (when enabled), `HENDY_GITHUB_TOKEN`, and `GITHUB_WEBHOOK_SECRET` in a protected `production` environment. Add Apple/Android/Windows signing materials only when native projects and release signing steps are present.
+## Optional provider/signing secrets
+
+Chỉ khai báo khi tích hợp đã được triển khai và kiểm thử: `BANK_WEBHOOK_SECRET`, `BANK_API_KEY`, `BANK_API_SECRET`, Android keystore, iOS provisioning/certificate, Windows PFX, Apple notarization và R2 access key.
 
 ## GitHub Actions variables
 
 - `CLOUDFLARE_D1_DATABASE_ID`
 - `CLOUDFLARE_DEDUPE_KV_NAMESPACE_ID`
-
-## Wrangler variables
-
-Review each `workers/*/wrangler.toml` before deployment. At minimum, update `CORS_ORIGINS`, `APP_URL`, `ADMIN_URL`, `BOT_USERNAME`, the D1 ID and KV namespace ID. `scripts/configure-wrangler.mjs` only replaces checked resource-ID placeholders during the CI deployment job; don't run it locally with production IDs unless that is intentional.
+- `WORKER_SUBDOMAIN`, `WORKER_API_URL`, `SELF_HEALING_WORKER_URL`
+- `MINIAPP_DOMAIN_OVERRIDE`, `ADMIN_DOMAIN_OVERRIDE`, `WEB_USER_DOMAIN_OVERRIDE`
+- `BOT_USERNAME` chỉ nếu Mini App cần deep link referral tới một bot đã được quản lý riêng
+- `BANK_SYNC_URL`, `TASKS_CONFIG_JSON`, `MINIGAME_CONFIG_JSON`
 
 ## Frontend variables
 
-Set `VITE_API_BASE_URL` to the platform API's public HTTPS origin for each Pages build. Anything prefixed `VITE_` is bundled into the browser and must be considered public configuration; never store tokens or bank keys there.
+Đặt `VITE_API_BASE_URL` thành HTTPS URL của Platform API. Mọi biến `VITE_*` được đưa vào bundle frontend, vì vậy không dùng cho token, mật khẩu hoặc private keys.
+
+## Rotation warning
+
+Một phiên bản cũ của `.env.example` chứa giá trị có hình thức bot token thật. Token đó đã bị thay bằng placeholder trong source hiện tại, nhưng giá trị có thể còn trong Git history. Nếu từng hợp lệ, revoke/rotate qua BotFather và chỉ cấu hình token mới trong GitHub/Cloudflare secrets.

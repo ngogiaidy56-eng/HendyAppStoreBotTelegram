@@ -3,7 +3,7 @@
 ## Đã hợp nhất vào source
 
 - Chuyển frontend sang `apps/mini-app`, `apps/web-user`, `apps/web-admin` theo cây thư mục mới.
-- Tách runtime: `workers/platform-api` (REST/API), `workers/telegram-bot` (webhook duy nhất), `workers/queue-processor`, `workers/edge-router`, `workers/self-healing-bot`.
+- Tách runtime hiện tại gồm bốn Workers: `workers/platform-api`, `workers/queue-processor`, `workers/edge-router`, `workers/self-healing-bot`. Telegram Bot Worker/webhook đã được gỡ bỏ; Telegram Mini App vẫn là Pages riêng và API dùng `BOT_TOKEN` chỉ để xác minh `initData` nếu Mini App còn bật.
 - Bổ sung package feature flags có rollout phần trăm; màn quản trị bật/tắt và lưu rollout; API trả trạng thái theo user.
 - Bổ sung tính năng Mini App: referral, daily check-in, inbox thông báo, nhiệm vụ, vòng quay miễn phí một lượt/ngày, profile và lịch sử.
 - Thêm bảng/migration cho rewards, tasks, queue/DLQ, bot configs, notifications và dynamic feature flags.
