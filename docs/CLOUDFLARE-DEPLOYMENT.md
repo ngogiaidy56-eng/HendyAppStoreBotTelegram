@@ -29,9 +29,9 @@ Mở repository → Settings → Secrets and variables → Actions → Secrets:
 - `SESSION_SECRET`: ít nhất 32 byte ngẫu nhiên.
 - `ADMIN_TELEGRAM_IDS`.
 - `GITHUB_WEBHOOK_SECRET`: secret dùng để ký/kiểm tra webhook GitHub của self-healing Worker.
-- `HENDY_GITHUB_TOKEN`:  tùy chọn, để ghi GitHub Actions Variables và bật self-healing CI.
+- `HENDY_GITHUB_TOKEN`: token cần quyền cập nhật GitHub Actions Variables, đọc/ghi Actions runs và tạo/sửa repository webhooks.
 
-Bổ sung secrets bank/provider chỉ khi các tích hợp đó đã được cấu hình. Workflow sẽ dừng sớm nếu thiếu secret bắt buộc, thay vì deploy thành công nhưng bot không thể hoạt động.
+Bổ sung secrets bank/provider chỉ khi các tích hợp đó đã được cấu hình. Để bật đầy đủ self-healing, cần cả `HENDY_GITHUB_TOKEN` và `GITHUB_WEBHOOK_SECRET`. Workflow sẽ dừng sớm nếu thiếu secret bắt buộc, thay vì deploy thành công nhưng bot không thể hoạt động.
 
 **Quan trọng:** bản trước của `.env.example` từng chứa một Telegram bot token thật. Tệp hiện đã được làm sạch nhưng token cũ có thể còn trong lịch sử Git. Hãy thu hồi/đổi token bằng BotFather trước khi đưa bot production lên mạng.
 
@@ -39,6 +39,7 @@ Bổ sung secrets bank/provider chỉ khi các tích hợp đó đã được c�
 
 - `WORKER_SUBDOMAIN` hoặc `WORKER_API_URL` nếu không thể tự phát hiện host `workers.dev`.
 - `TELEGRAM_BOT_WORKER_URL` nếu bot Worker dùng custom domain.
+- `SELF_HEALING_WORKER_URL` nếu self-healing Worker dùng custom domain.
 - `MINIAPP_DOMAIN_OVERRIDE`, `ADMIN_DOMAIN_OVERRIDE`, `WEB_USER_DOMAIN_OVERRIDE` cho custom HTTPS origins của Pages.
 - `BOT_USERNAME`, `BANK_SYNC_URL`, `TASKS_CONFIG_JSON`, `MINIGAME_CONFIG_JSON` và các biến nghiệp vụ khác.
 
