@@ -36,3 +36,11 @@ crons = ["15 * * * *"]
 [[queues.producers]]
 binding = "JOBS"
 queue = "hendy-jobs"
+
+[[durable_objects.bindings]]
+name = "ADMIN_LIVE_SESSIONS"
+class_name = "AdminLiveSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["AdminLiveSession"]

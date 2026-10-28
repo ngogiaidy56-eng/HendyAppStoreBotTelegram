@@ -1,6 +1,8 @@
 import { routeApi } from './routes/api.js';
 import { handleBinaryDownload } from './routes/api.js';
 import { HttpError, json, nowSeconds } from './utils/http.js';
+import { handleAdminWebSocket } from './realtime/ws-handler.js';
+export { AdminLiveSession } from './realtime/ws-durable-object.js';
 
 
 async function cleanupExpiredUploads(env) {
@@ -43,6 +45,7 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
     try {
+      if (url.pathname === '/api/admin/live/ws') return await handleAdminWebSocket(request, env);
       if (url.pathname === '/health' && request.method === 'GET') {
         const db = await env.DB.prepare('SELECT 1 AS ok').first();
         return json({ ok: db?.ok === 1, service: 'hendy-app-store-api', timestamp: nowSeconds() }, 200, cors);

@@ -23,3 +23,8 @@ dead_letter_queue = "hendy-jobs-dlq"
 [vars]
 GITHUB_OWNER = "ngogiaidy56-eng"
 GITHUB_REPO = "HendyAppStoreBotTelegram"
+
+[[durable_objects.bindings]]
+name = "ADMIN_LIVE_SESSIONS"
+class_name = "AdminLiveSession"
+script_name = "hendy-platform-api"
