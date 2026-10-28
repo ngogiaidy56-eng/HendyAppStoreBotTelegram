@@ -95,3 +95,17 @@ Nếu lỗi là permission denied, bổ sung đúng quyền API token. Nếu `CL
 `.github/workflows/ci-test.yml` xác minh test và build asset cho Worker duy nhất. `.github/workflows/deploy-workers.yml` chỉ là phương án triển khai thủ công dự phòng; các workflow deploy Pages riêng đã được vô hiệu hóa để tránh tạo nhiều ứng dụng Cloudflare không cần thiết.
 
 Nếu bật Cloudflare Workers Builds tự động theo push, dùng nó làm pipeline production chính. Không bật thêm một pipeline tự động khác để deploy cùng Worker.
+
+
+## 7. Ngắt các Pages cũ để chỉ còn một deployment
+
+Các project Pages `hendy-web-admin`, `hendy-mini-app`, `hendy-app-storefront` trước đây có thể vẫn còn Git integration riêng trong Cloudflare. Các workflow YAML đã được chuyển sang kiến trúc một Worker, nhưng việc đó **không tự xóa hoặc ngắt Git integration Pages đã tạo trước đó**.
+
+Để chỉ dùng Worker `hendyappstorebotelegram`:
+1. Trong Cloudflare Dashboard, mở từng project Pages cũ (nếu vẫn tồn tại): `hendy-web-admin`, `hendy-mini-app`, `hendy-app-storefront`.
+2. Vào Settings → Builds & deployments / Git integration.
+3. Tắt auto-deploy hoặc disconnect repository cho các project Pages cũ. Không cần xóa project nếu muốn giữ bản deploy cũ để dự phòng.
+4. Mở Workers & Pages → `hendyappstorebotelegram` → Builds. Đảm bảo chỉ Worker hợp nhất đang tự build từ branch `main`.
+5. Mở check status `Workers Builds: hendyappstorebotelegram` trong commit mới nhất và xác nhận Success.
+
+Cloudflare có thể tiếp tục hiển thị check thất bại của Pages cũ cho tới khi Git integration của chúng được ngắt; những check đó không phải kết quả deploy của Worker hợp nhất.
