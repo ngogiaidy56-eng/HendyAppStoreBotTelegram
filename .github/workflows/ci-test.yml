@@ -7,52 +7,52 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: ci-${{ github.ref }}-v2
+  group: ci-${{ github.ref }}-single-worker
   cancel-in-progress: true
 jobs:
   worker-and-sql:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.18.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
       - run: pnpm check
       - run: pnpm test
-  frontend-build:
+  unified-worker-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.18.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile
-      - run: pnpm --filter @hendy/mini-app build
-        env:
-          VITE_API_BASE_URL: https://example.invalid
-      - run: pnpm --filter @hendy/web-admin build
-        env:
-          VITE_API_BASE_URL: https://example.invalid
-      - run: pnpm --filter @hendy/web-user build
-        env:
-          VITE_API_BASE_URL: https://example.invalid
-      - run: pnpm --filter @hendy/mini-app test
+      - run: pnpm run preflight:cloudflare:single
+      - run: pnpm run build:cloudflare
+      - name: Verify unified static assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f public/index.html
+          test -f public/admin/index.html
+          test -f public/miniapp/index.html
+          test -f wrangler.toml
   miniapp-e2e:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 10.18.0
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
       - run: pnpm install --no-frozen-lockfile

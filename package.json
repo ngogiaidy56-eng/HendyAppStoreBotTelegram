@@ -4,31 +4,24 @@
   "type": "module",
   "version": "1.0.0",
   "packageManager": "pnpm@10.18.0",
-  "engines": {
-    "node": ">=22.12.0"
-  },
+  "engines": { "node": ">=22.12.0" },
   "devDependencies": {
     "wrangler": "^4.45.0",
     "husky": "^9.1.7",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"
   },
-  "pnpm": {
-    "overrides": {
-      "tinypool": "^2.1.2"
-    }
-  },
+  "pnpm": { "overrides": { "tinypool": "^2.1.2" } },
   "scripts": {
     "dev:miniapp": "pnpm --filter @hendy/mini-app dev",
     "dev:admin": "pnpm --filter @hendy/web-admin dev",
     "dev:web": "pnpm --filter @hendy/web-user dev",
-    "dev:worker": "pnpm --filter @hendy/platform-api dev",
+    "dev:worker": "wrangler dev --config wrangler.toml",
     "build": "pnpm -r --if-present build",
-    "build:cloudflare:miniapp": "node scripts/cloudflare-build.mjs mini-app",
-    "build:cloudflare:admin": "node scripts/cloudflare-build.mjs web-admin",
-    "build:cloudflare:storefront": "node scripts/cloudflare-build.mjs web-user",
-    "preflight:cloudflare": "node scripts/cloudflare-preflight.mjs all",
-    "preflight:cloudflare:pages": "node scripts/cloudflare-preflight.mjs pages",
+    "build:cloudflare": "node scripts/build-cloudflare-single-worker.mjs",
+    "provision:cloudflare:resources": "node scripts/provision-cloudflare-resources.mjs",
+    "deploy:cloudflare": "pnpm exec wrangler d1 migrations apply hendyappstore-db --remote --config wrangler.toml && pnpm exec wrangler deploy --config wrangler.toml",
+    "preflight:cloudflare:single": "node scripts/cloudflare-preflight.mjs single",
     "test": "pnpm --filter @hendy/platform-api test && python scripts/test_db.py && node --test packages/feature-flags/test/*.test.js && pnpm --filter @hendy/mini-app test",
     "check": "pnpm --filter @hendy/platform-api check && node scripts/check-workspace.js",
     "migrate:local": "pnpm --filter @hendy/platform-api migrate:local",

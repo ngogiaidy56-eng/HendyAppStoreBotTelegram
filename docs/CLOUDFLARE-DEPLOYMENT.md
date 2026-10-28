@@ -1,154 +1,97 @@
-# Triển khai HendyAppStoreBotTelegram lên Cloudflare
+# Triển khai toàn bộ HendyAppStoreBotTelegram bằng một Cloudflare Worker
 
-Tài liệu này dành cho repository `ngogiaidy56-eng/HendyAppStoreBotTelegram` và màn hình Create an app trong Cloudflare Dashboard.
+## Mục tiêu
 
-## 1. Hiểu đúng màn hình đang mở
+Chỉ tạo **một Worker** tên `hendyappstorebotelegram`. Worker này phục vụ:
 
-Trong ảnh, biểu mẫu có cả **Build command** và **Deploy command**. Đây là luồng tạo một **Cloudflare Worker** bằng Workers Builds; nó không tự động tạo ba Pages và toàn bộ các Worker trong monorepo.
+- Storefront: `/`
+- Admin: `/admin/`
+- Telegram Mini App: `/miniapp/`
+- API: `/api/*)
+- Tải bản phát hành: `/downloads/*)
+- Telegram webhook: `/telegram/webhook`
+- Queue consumer, cron cleanup và webhook GitHub tùy chọn.
 
-Repository có ba frontend riêng và năm Worker riêng. Không được coi cả repository là một ứng dụng Vite duy nhất. Lệnh gốc `npm run build` không tạo ra một thư mục `dist/` duy nhất ở root, còn Wrangler config nằm bên trong từng thư mục Worker.
+Không cần tạo ba Pages hoặc năm Workers riêng biệt. D1, R2, KV và Queues vẫn là các binding/tài nguyên Cloudflare mà một Worker có thể sử dụng.
 
-Tài liệu Cloudflare:
-- [Pages monorepos](https://developers.cloudflare.com/pages/configuration/monorepos/)
-- [Pages build configuration](https://developers.cloudflare.com/pages/configuration/build-configuration/)
-- [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
+## 1. Cấu hình màn hình Workers & Pages bạn đang mở
 
-## 2. Nếu muốn tiếp tục ngay trên màn hình trong ảnh — tạo API Worker
-
-Sử dụng cấu hình dưới đây để tạo riêng API Worker. **Không bấm Deploy khi vẫn giữ tên `hendyappstorebotelegram` và lệnh mặc định `npm run build`.**
-
-Trong phần cấu hình hiện tại:
-
-| Trường | Giá trị |
-|---|---|
-| Git repository | `ngogiaidy56-eng/HendyAppStoreBotTelegram` |
-| Branch | `main` |
-| Project name | `hendy-platform-api` |
-| Root directory | Để trống / repository root (`/`) |
-| Build command | `pnpm install --no-frozen-lockfile && CLOUDFLARE_WORKER_TARGET=platform-api node scripts/configure-wrangler.mjs && pnpm exec wrangler d1 migrations apply hendyappstore-db --remote --config workers/platform-api/wrangler.toml` |
-| Deploy command | `pnpm exec wrangler deploy --config workers/platform-api/wrangler.toml` |
-
-Tên `hendy-platform-api` phải trùng với trường `name` trong `workers/platform-api/wrangler.toml`. Giữ root directory ở repository root vì script cấu hình tìm thư mục `workers/` từ root.
-
-### Biến môi trường của Worker Builds
-
-Mở Settings → Builds hoặc mục Variables and Secrets của Worker, rồi thêm biến phù hợp với cấu hình build:
-
-- `CLOUDFLARE_D1_DATABASE_ID`: ID của D1 database đã tạo, tên database là `hendyappstore-db`.
-- `CLOUDFLARE_ACCOUNT_ID`: Account ID của Cloudflare.
-- `CLOUDFLARE_API_TOKEN`: API token giới hạn quyền triển khai Worker và truy cập tài nguyên cần thiết. Lưu token dưới dạng secret, không commit vào Git.
-- `APP_URL`, `ADMIN_URL`, `CORS_ORIGINS`, `BOT_USERNAME`: có thể thêm sau khi có URL thật của frontend.
-
-Không nhập chuỗi `REPLACE_WITH_D1_DATABASE_ID`; script sẽ thay placeholder bằng `CLOUDFLARE_D1_DATABASE_ID` trong bản checkout của lần build. Lệnh build ở trên cũng áp dụng các migration D1 chưa chạy trước khi lệnh Deploy command phát hành Worker. ID D1 là thông tin cấu hình, còn API token là bí mật.
-
-### Tạo tài nguyên trước khi deploy API
-
-Đảm bảo trong cùng Cloudflare account đã có:
-- D1 database `hendyappstore-db`.
-- R2 bucket `hendy-app-releases`.
-- Queues `hendy-jobs` và `hendy-jobs-dlq`.
-
-Nếu tài nguyên chưa tồn tại hoặc tên không khớp với `wrangler.toml`, deployment có thể thất bại. Tạo tài nguyên ở Dashboard trước khi bấm Deploy.
-
-Sau khi deploy, mở Worker `hendy-platform-api`, sao chép HTTPS URL đang hoạt động. Bạn sẽ dùng URL này cho biến `VITE_API_BASE_URL` ở ba Pages.
-
-> Chọn một hệ thống CI/CD làm nguồn triển khai duy nhất cho từng Worker. Repository hiện có GitHub Actions Deploy Workers; nếu bạn bật Workers Builds trực tiếp cho cùng một Worker, hai pipeline có thể cùng deploy nó. Đừng chạy đồng thời cả hai cho cùng một Worker nếu chưa chủ động điều phối.
-
-## 3. Tạo ba Cloudflare Pages riêng
-
-Vào Workers & Pages → Create application → Pages → Connect to Git. Tạo mỗi frontend thành một Pages project. Dùng repository và branch `main` như nhau nhưng thiết lập Build command / output directory khác nhau.
-
-### Pages 1 — Telegram Mini App
+Chọn repository `ngogiaidy56-eng/HendyAppStoreBotTelegram`, branch `main), rồi đặt:
 
 | Trường | Giá trị |
 |---|---|
-| Project name | `hendy-mini-app` |
-| Root directory | Repository root (`/`) |
-| Build command | `pnpm run build:cloudflare:miniapp` |
-| Build output directory | `apps/mini-app/dist` |
-| Environment variable | `VITE_API_BASE_URL` = URL HTTPS của API Worker |
+| Project name | `hendyappstorebotelegram` |
+| Root directory | `/` hoặc để trống |
+| Build command | `pnpm install --no-frozen-lockfile && pnpm run provision:cloudflare:resources && pnpm run build:cloudflare` |
+| Deploy command | `pnpm run deploy:cloudflare` |
 
-### Pages 2 — Admin
+Không dùng `npm run build` và không đặt output directory thành `dist` ở root. Root `wrangler.toml` khai báo static asset directory là `./public); build script tạo thư mục đó bằng cách build/gom cả ba giao diện.
 
-| Trường | Giá trị |
-|---|---|
-| Project name | `hendy-web-admin` |
-| Root directory | Repository root (`/`) |
-| Build command | `pnpm run build:cloudflare:admin` |
-| Build output directory | `apps/web-admin/dist` |
-| Environment variable | `VITE_API_BASE_URL` = URL HTTPS của API Worker |
+Tài liệu Cloudflare: [Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/) và [Workers Static Assets](https://developers.cloudflare.com/workers/static-assets/).
 
-### Pages 3 — Storefront người dùng
+## 2. Build variables and secrets
 
-| Trường | Giá trị |
-|---|---|
-| Project name | `hendy-app-storefront` |
-| Root directory | Repository root (`/`) |
-| Build command | `pnpm run build:cloudflare:storefront` |
-| Build output directory | `apps/web-user/dist` |
-| Environment variable | `VITE_API_BASE_URL` = URL HTTPS của API Worker |
+Trong phần Settings → Builds → Build variables and secrets của Worker, thêm:
 
-Root `package.json` khai báo `pnpm@10.18.0`; `.nvmrc` chọn Node.js 22.12.0. Cloudflare phải cài dependency bằng pnpm tại monorepo root. Nếu automatic dependency install không phát hiện pnpm đúng, đặt Pages build variable `SKIP_DEPENDENCY_INSTALL=1` và dùng build command sau để cài rõ ràng, ví dụ Storefront:
+- `CLOUDFLARE_ACCOUNT_ID`: Account ID 32 ký tự.
+- `CLOUDFLARE_API_TOKEN): lưu dưới dạng build secret; cần quyền tạo/đọc D1, Workers KV, R2 buckets, Queues và Workers Scripts. Hãy dùng token giới hạn quyền phù hợp, không dùng token này trong mã nguồn.
 
-```bash
-corepack enable && corepack pnpm@10.18.0 install --no-frozen-lockfile && pnpm run build:cloudflare:storefront
-```
+Build script tự tìm hoặc tạo các tài nguyên có tên cố định:
+- D1: `hendyappstore-db`
+- KV: `hendy-appstore-dedupe`
+- R2: `hendy-app-releases`
+- Queue: `hendy-jobs)
+- Dead-letter Queue: `hendy-jobs-dlq)
 
-Vẫn để output directory là `apps/web-user/dist`. Không đổi thành `dist` ở root.
+Sau đó, script chèn ID resource vào `wrangler.toml` chỉ trong workspace của lần build. Nếu API token thiếu quyền, build dừng và báo endpoint Cloudflare nào không thể gọi được. Không cần tự gõ D1/KV UUID vào mã nguồn.
 
-## 4. GitHub Actions CI/CD — cách triển khai đồng bộ toàn bộ hệ thống
+## 3. Runtime secrets sau lần deploy đầu
 
-Repository có sẵn các workflow:
-- `.github/workflows/ci-test.yml`: chạy kiểm tra và build.
-- `.github/workflows/deploy-workers.yml`: triển khai API, Telegram bot, queue processor, edge router, self-healing worker và migration D1.
-- `.github/workflows/deploy-miniapp.yml`: triển khai Mini App.
-- `.github/workflows/deploy-web.yml`: triển khai Admin và Storefront.
+Mở Worker → Settings → Variables and Secrets, thêm Runtime Secrets:
 
-Cách này hợp lý hơn khi muốn quản lý toàn bộ dịch vụ từ một nơi. Trước khi chạy, vào GitHub → Settings → Secrets and variables → Actions và tạo:
+- `BOT_TOKEN`: Telegram bot token.
+- `BOT_WEBHOOK_SECRET`: secret token Telegram gửi kèm webhook.
+- `SESSION_SECRET`: chuỗi ngẫu nhiên ít nhất 32 bytes.
+- `ADMIN_TELEGRAM_IDS`: Telegram user ID quản trị theo định dạng mà mã nguồn hiện có yêu cầu.
+- `GITHUB_TOKEN` và `GITHUB_WEBHOOK_SECRET`: chỉ khi bật endpoint tự chạy lại CI.
+- Các secret ngân hàng chỉ khi đã xác minh chữ ký webhook từ nhà cung cấp.
 
-**Repository/Environment Secrets**
-- `CLOUDFLARE_API_TOKEN`
-- `CLOUDFLARE_ACCOUNT_ID`
-- `HENDY_GITHUB_TOKEN` nếu dùng script tự phát hiện domain và đồng bộ Actions Variables.
-- `BOT_TOKEN`, `BOT_WEBHOOK_SECRET`, `SESSION_SECRET` (ít nhất 32 bytes), `ADMIN_TELEGRAM_IDS`; những secret webhook/bank khác chỉ bật khi tích hợp thật.
+Build secret và Runtime Secret là hai mục khác nhau. Không đưa token vào Build command, README hoặc commit Git.
 
-**Actions Variables**
-- `CLOUDFLARE_D1_DATABASE_ID`
-- `CLOUDFLARE_DEDUPE_KV_NAMESPACE_ID`
-- `VITE_API_BASE_URL` hoặc cho phép workflow đồng bộ endpoint API sau deploy.
-- Tuỳ chọn `MINIAPP_PAGES_PROJECT`, `ADMIN_PAGES_PROJECT`, `STOREFRONT_PAGES_PROJECT` nếu dùng tên Pages khác mặc định.
+## 4. URL sau deploy
 
-Tên Pages phải tồn tại trước khi gọi `wrangler pages deploy`. Dùng các tên trên hoặc cập nhật Variables để tên trong workflow khớp với tên dự án ở Cloudflare.
+Dùng URL thật hiển thị trong Cloudflare:
+- Storefront: `https://<worker-domain>/`
+- Admin: `https://<worker-domain>/admin/`
+- Telegram Mini App: `https://<worker-domain>/miniapp/`
+- API health: `https://<worker-domain>/health`
+- Telegram webhook: `https://<worker-domain>/telegram/webhook`
 
-Sau đó:
-1. Mở tab GitHub Actions, chạy **CI Test** và bảo đảm thành công.
-2. Chạy **Deploy Workers**; xem từng bước tạo queue, migration và deploy.
-3. Chạy **Deploy Mini App**.
-4. Chạy **Deploy Web Frontends**.
-5. Kiểm tra URL Pages, API Worker, CORS và nhật ký Workers.
+Cấu hình Telegram Mini App dùng URL `/miniapp/) và webhook dùng `/telegram/webhook), cùng `BOT_WEBHOOK_SECRET` đã khai báo.
 
-Không đưa token vào `.env.example`, mã nguồn, build command hay URL. Chỉ lưu token trong mục Secrets.
+## 5. Build và xác minh
 
-## 5. Chẩn đoán lỗi
+Build command sẽ:
+1. Cài dependency từ workspace pnpm.
+2. Tạo hoặc dùng lại D1/KV/R2/Queues.
+3. Build Storefront với base `/), Admin với base `/admin/), Mini App với base `/miniapp/).
+4. Gom cả ba vào `public/), thư mục static asset của Worker.
 
-- **Wrong project name / Worker name mismatch:** đổi Project name thành `hendy-platform-api`, hoặc đảm bảo khớp với `name` trong Wrangler config.
-- **No such file / Wrangler config not found:** Root directory phải là `/` nếu dùng build command trong mục 2.
-- **Unresolved Cloudflare placeholder:** xác minh `CLOUDFLARE_D1_DATABASE_ID` và chạy configure script trong build command.
-- **Binding / bucket / queue not found:** tạo D1, R2, Queues với tên đúng trong Wrangler config.
-- **Pages cannot find output directory:** kiểm tra đúng output path tương ứng với app; đây là đường dẫn tính từ repository root.
-- **Frontend build thành công nhưng API không hoạt động:** đặt `VITE_API_BASE_URL` thành URL HTTPS thật của Worker, rebuild Pages và cấu hình CORS cho đúng origin.
-- **GitHub Actions thất bại trước khi có log bước:** mở từng job → View raw logs; xác minh Actions đang được bật, quyền Actions policy và Secrets/Variables trong Environment `production`. Không coi việc tạo được Worker/Pages là bằng chứng deploy thành công.
+Deploy command sẽ:
+1. Chạy các D1 migrations chưa được áp dụng.
+2. Triển khai root `wrangler.toml` dưới dạng một Worker.
 
-Chạy kiểm tra cấu trúc từ máy có Node.js 22.12+ và pnpm 10.18.0:
+Sau khi Deploy báo thành công, kiểm tra:
+1. `/` mở Storefront.
+2. `/admin/` mở Admin.
+3. `/miniapp/` mở Telegram Mini App.
+4. `/health` trả về JSON `ok: true) sau khi migrations hoàn tất.
+5. Worker Logs không có lỗi binding hoặc runtime secret.
 
-```bash
-pnpm install --no-frozen-lockfile
-pnpm run preflight:cloudflare:pages
-pnpm run build:cloudflare:storefront
-pnpm run build:cloudflare:admin
-pnpm run build:cloudflare:miniapp
-pnpm check
-pnpm test
-```
+Nếu lỗi là permission denied, bổ sung đúng quyền API token. Nếu `CLOUDFLARE_ACCOUNT_ID` hoặc `CLOUDFLARE_API_TOKEN` thiếu, cấu hình trong Build variables/secrets rồi Retry deployment.
 
-Bản build phải kết thúc với exit code 0 và tạo `index.html` tại output directory nêu trên. Deployment chỉ được xác nhận sau khi Cloudflare báo thành công và URL thật hoạt động.
+## 6. GitHub Actions
+
+`.github/workflows/ci-test.yml` xác minh test và build asset cho Worker duy nhất. `.github/workflows/deploy-workers.yml` chỉ là phương án triển khai thủ công dự phòng; các workflow deploy Pages riêng đã được vô hiệu hóa để tránh tạo nhiều ứng dụng Cloudflare không cần thiết.
+
+Nếu bật Cloudflare Workers Builds tự động theo push, dùng nó làm pipeline production chính. Không bật thêm một pipeline tự động khác để deploy cùng Worker.
