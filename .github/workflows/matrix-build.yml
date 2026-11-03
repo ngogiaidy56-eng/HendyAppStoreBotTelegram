@@ -41,7 +41,7 @@ jobs:
           [[ "$RELEASE_VERSION" =~ ^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$ ]] || { echo "::error::Invalid release version format."; exit 1; }
       - name: Set up Java for Android
         if: ${{ matrix.platform == 'android' }}
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
